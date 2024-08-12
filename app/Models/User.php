@@ -21,6 +21,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'cedula',
+        'role_id',
     ];
 
     /**
@@ -42,4 +44,35 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
     ];
+
+    /**
+     * Relationship with the Role model.
+     */
+    public function role()
+    {
+        return $this->belongsTo(Role::class);
+    }
+
+    /**
+     * Take cedula to login
+     */
+    public function getAuthIdentifierName()
+    {
+        return 'cedula';
+    }
+
+    public function getUserIdAttribute()
+    {
+        return $this->attributes['id'];
+    }    
+
+    public function enrolledCourses()
+    {
+        return $this->belongsToMany(Course::class, 'course_user', 'user_id', 'course_id');
+    }
+
+    public function lessonResponses()
+    {
+        return $this->hasMany(LessonResponse::class);
+    }
 }
