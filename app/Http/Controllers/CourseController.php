@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Course;
+use App\Models\Enrollment;
+use App\Models\LessonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
@@ -317,5 +319,66 @@ class CourseController extends Controller
         $course->delete();
 
         return response()->json(['message' => 'Curso eliminado con éxito']);
+    }
+
+    public function finalize($id)
+    {
+        // Iniciar el proceso de finalización
+        Log::info('Iniciando finalización del curso', ['course_id' => $id, 'user_id' => auth()->id()]);
+
+        // Encontrar el curso y la inscripción del usuario autenticado
+        $course = Course::findOrFail($id);
+        $user = auth()->user();
+        Log::info('Curso y usuario encontrados', ['course_id' => $course->id, 'user_id' => $user->id]);
+
+        $enrollment = Enrollment::where('course_id', $course->id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$enrollment) {
+            Log::warning('Usuario no inscrito en el curso', ['course_id' => $course->id, 'user_id' => $user->id]);
+            return response()->json(['message' => 'No estás inscrito en este curso.'], 403);
+        }
+
+        // Calcular el puntaje basado en las respuestas a las lecciones
+        $userScore = $this->calculateUserScore($course, $user);
+        Log::info('Score calculado', ['score' => $userScore]);
+
+        $minimumScore = 7; // Ejemplo de un puntaje mínimo requerido
+
+        if ($userScore >= $minimumScore) {
+            $enrollment->status = 'Finalizado';
+            $enrollment->save();
+
+            Log::info('Curso finalizado con éxito', ['enrollment_id' => $enrollment->id]);
+
+            return response()->json(['message' => 'Curso finalizado con éxito.']);
+        }
+
+        Log::warning('No se cumplen las condiciones para finalizar el curso', [
+            'userScore' => $userScore,
+            'minimumScore' => $minimumScore
+        ]);
+
+        return response()->json(['message' => 'No has completado todas las lecciones o tu puntaje no cumple con el requisito mínimo de 7.'], 400);
+    }
+
+    private function calculateUserScore($course, $user)
+    {
+        $lessonResponses = LessonResponse::where('user_id', $user->id)
+            ->whereHas('lesson.section', function ($query) use ($course) {
+                $query->where('course_id', $course->id);
+            })
+            ->get();
+
+        $totalScore = 0;
+        $totalLessons = 0;
+
+        foreach ($lessonResponses as $response) {
+            $totalScore += $response->score;
+            $totalLessons++;
+        }
+
+        return $totalLessons > 0 ? $totalScore / $totalLessons : 0;
     }
 }

@@ -43,7 +43,7 @@ class EnrollmentController extends Controller
                 'status' => $enrollment->status,
             ]
         ], 201);
-    }    
+    }
 
     public function isEnrolled(Request $request, Course $course)
     {

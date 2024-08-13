@@ -31,9 +31,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // Rutas protegidas por autenticación para la gestión de usuarios
 Route::middleware('auth:sanctum')->group(function () {
-    Route::post('/users', [UserController::class, 'store']);
+    Route::get('/users', [UserController::class, 'index']);
     Route::get('/users/{user}/edit', [UserController::class, 'edit']);
     Route::put('/users/{user}', [UserController::class, 'update']);
+    Route::post('/users', [UserController::class, 'store']);
     Route::delete('/users/{user}', [UserController::class, 'destroy']);
 });
 
@@ -51,7 +52,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Rutas adicionales para inscripciones y finalización de cursos
     Route::get('/enrolled-courses', [EnrollmentController::class, 'getMyCourses']);
-    Route::post('/courses/{id}/finalize', [EnrollmentController::class, 'finalizeCourse']);
+//    Route::post('/courses/{id}/finalize', [EnrollmentController::class, 'finalizeCourse']);
 
     Route::post('/courses/{id}/enroll', [CourseController::class, 'enroll'])->middleware('auth');
     Route::post('/courses/{id}/finalize', [CourseController::class, 'finalize'])->middleware('auth');

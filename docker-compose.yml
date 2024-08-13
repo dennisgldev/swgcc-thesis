@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile.app
+        container_name: swgcc-app
+        restart: unless-stopped
+        environment:
+            APP_ENV: ${APP_ENV}
+            APP_DEBUG: ${APP_DEBUG}
+            APP_KEY: ${APP_KEY}
+            DB_HOST: db
+            DB_PORT: 3306
+            DB_DATABASE: ${DB_DATABASE}
+            DB_USERNAME: ${DB_USERNAME}
+            DB_PASSWORD: ${DB_PASSWORD}
+        volumes:
+            - ./:/var/www/html
+        networks:
+            - swgcc-network
+
+    nginx:
+        image: nginx:alpine
+        container_name: swgcc-nginx
+        ports:
+            - "8900:80"
+        volumes:
+            - ./:/var/www/html
+            - ./nginx.conf:/etc/nginx/conf.d/default.conf
+        depends_on:
+            - app
+        networks:
+            - swgcc-network
+
+    vite:
+        build:
+            context: .
+            dockerfile: Dockerfile.vite
+        container_name: swgcc-vite
+        restart: unless-stopped
+        working_dir: /var/www/html
+        volumes:
+            - ./:/var/www/html
+        ports:
+            - "5173:5173"
+        networks:
+            - swgcc-network
+        command: npm run dev
+
+    db:
+        image: mysql:8.0
+        container_name: swgcc-db
+        restart: unless-stopped
+        environment:
+            MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+            MYSQL_DATABASE: ${DB_DATABASE}
+            MYSQL_USER: ${DB_USERNAME}
+            MYSQL_PASSWORD: ${DB_PASSWORD}
+        volumes:
+            - db-data:/var/lib/mysql
+        ports:
+            - "3806:3306"
+        networks:
+            - swgcc-network
+
+    phpmyadmin:
+        image: phpmyadmin/phpmyadmin
+        container_name: swgcc-phpmyadmin
+        restart: unless-stopped
+        environment:
+            PMA_HOST: db
+            MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+        ports:
+            - "8084:80"
+        networks:
+            - swgcc-network
+
+networks:
+    swgcc-network:
+        driver: bridge
+
+volumes:
+    db-data:

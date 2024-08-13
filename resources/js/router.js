@@ -9,7 +9,6 @@ import UserEdit from './components/admin/UserEdit.vue';
 import CourseList from './components/CourseList.vue';
 import CourseDetail from './components/CourseDetail.vue';
 import CourseForm from './components/CourseForm.vue';
-import LessonModal from './components/LessonModal.vue';
 
 const routes = [
   { path: '/', component: Home },

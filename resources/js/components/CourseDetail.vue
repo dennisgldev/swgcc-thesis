@@ -4,7 +4,7 @@
       <v-col cols="12" v-if="course">
         <!-- Imagen de portada del curso -->
         <v-card class="mb-5">
-          <v-img :src="course.cover_image ? `/storage/${course.cover_image}` : '/images/default-cover.jpg'" height="300px" class="white--text">
+          <v-img :src="course.cover_image ? `/uploads/${course.cover_image}` : '/images/default-cover.jpg'" height="300px" class="white--text">
             <v-card-title class="headline">{{ course.title }}</v-card-title>
           </v-img>
           <v-card-subtitle>{{ course.description }}</v-card-subtitle>
@@ -150,7 +150,7 @@
 
         <!-- Botón de inscripción (Solo si no está inscrito) -->
         <v-btn color="primary" @click="enrollInCourse" v-if="!isEnrolled" class="mt-5">Inscribirse en el Curso</v-btn>
-        
+
       </v-col>
     </v-row>
   </v-container>
