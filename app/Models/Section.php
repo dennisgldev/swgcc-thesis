@@ -23,7 +23,7 @@ class Section extends Model
     // Relación con Lesson
     public function lessons()
     {
-        return $this->hasOne(Lesson::class);
+        return $this->hasMany(Lesson::class);
     }
 
     public function media()

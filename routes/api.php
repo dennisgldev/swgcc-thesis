@@ -49,6 +49,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/courses/{course}/enroll', [EnrollmentController::class, 'enroll']);
     Route::get('/courses/{course}/is-enrolled', [EnrollmentController::class, 'isEnrolled']);
 
+    // Rutas adicionales para inscripciones y finalización de cursos
+    Route::get('/enrolled-courses', [EnrollmentController::class, 'getMyCourses']);
+    Route::post('/courses/{id}/finalize', [EnrollmentController::class, 'finalizeCourse']);
+
     Route::post('/courses/{id}/enroll', [CourseController::class, 'enroll'])->middleware('auth');
     Route::post('/courses/{id}/finalize', [CourseController::class, 'finalize'])->middleware('auth');
 });

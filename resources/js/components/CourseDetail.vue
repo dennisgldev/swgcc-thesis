@@ -140,7 +140,7 @@
 
         <!-- Botón para finalizar curso (Solo en la última sección y si el curso está en curso) -->
         <v-btn
-          v-if="isEnrolled && course.status === 'En curso' && isLastSection"
+          v-if="isEnrolled && enrollmentStatus === 'En curso' && isLastSection"
           color="primary"
           @click="finalizeCourse"
           class="mt-5"
@@ -167,88 +167,90 @@ export default {
       isTeacher: false,
       isEnrolled: false,
       selectedAnswers: {},
+      enrollmentStatus: '', // Variable para almacenar el estado de la inscripción
     };
   },
   computed: {
     isLastSection() {
       if (!this.course || !this.course.sections) return false;
       const lastSectionId = this.course.sections[this.course.sections.length - 1].id;
+      console.log('Checking if this is the last section:', lastSectionId);
       return this.course.sections.some(section => section.id === lastSectionId);
     },
   },
   methods: {
     fetchCourse() {
-    const courseId = this.$route.params.id;
-    console.log('Fetching course data for course ID:', courseId);
+      const courseId = this.$route.params.id;
+      console.log('Fetching course data for course ID:', courseId);
 
-    axios.get(`/api/courses/${courseId}`)
+      axios.get(`/api/courses/${courseId}`)
         .then(response => {
-            this.course = response.data;
-            console.log('Course data received:', this.course);
+          this.course = response.data;
+          console.log('Course data received:', this.course);
 
-            if (Array.isArray(this.course.sections)) {
-                this.course.sections.forEach(section => {
-                    this.selectedAnswers[section.id] = {};
-                    console.log('Processing section:', section);
+          if (Array.isArray(this.course.sections)) {
+            this.course.sections.forEach(section => {
+              this.selectedAnswers[section.id] = {};
+              console.log('Processing section:', section);
 
-                    // Verificar si "lessons" es un objeto y convertirlo en un array si es necesario
-                    if (section.lessons && !Array.isArray(section.lessons)) {
-                        section.lessons = [section.lessons];
-                        console.warn(`"lessons" convertido en array en sección con ID: ${section.id}`);
-                    }
+              if (section.lessons && !Array.isArray(section.lessons)) {
+                section.lessons = [section.lessons];
+                console.warn(`"lessons" convertido en array en sección con ID: ${section.id}`);
+              }
 
-                    if (section.lessons && Array.isArray(section.lessons)) {
-                        section.lessons.forEach(lesson => {
-                            this.selectedAnswers[lesson.id] = {};
-                            console.log('Processing lesson:', lesson);
+              if (section.lessons && Array.isArray(section.lessons)) {
+                section.lessons.forEach(lesson => {
+                  this.selectedAnswers[lesson.id] = {};
+                  console.log('Processing lesson:', lesson);
 
-                            if (lesson.questions && !Array.isArray(lesson.questions)) {
-                                lesson.questions = [lesson.questions];
-                                console.warn(`"questions" convertido en array en lección con ID: ${lesson.id}`);
-                            }
+                  if (lesson.questions && !Array.isArray(lesson.questions)) {
+                    lesson.questions = [lesson.questions];
+                    console.warn(`"questions" convertido en array en lección con ID: ${lesson.id}`);
+                  }
 
-                            if (lesson.questions && Array.isArray(lesson.questions)) {
-                                lesson.questions.forEach(question => {
-                                    this.selectedAnswers[question.id] = {};
-                                    console.log('Processing question:', question);
-                                });
-                            } else {
-                                console.warn('No questions found for lesson:', lesson.id);
-                            }
-                        });
-                    } else {
-                        console.warn('No lessons found for section:', section.id);
-                    }
+                  if (lesson.questions && Array.isArray(lesson.questions)) {
+                    lesson.questions.forEach(question => {
+                      this.selectedAnswers[question.id] = {};
+                      console.log('Processing question:', question);
+                    });
+                  } else {
+                    console.warn('No questions found for lesson:', lesson.id);
+                  }
                 });
-            } else {
-                console.warn('No sections found in course:', this.course.id);
-            }
+              } else {
+                console.warn('No lessons found for section:', section.id);
+              }
+            });
+          } else {
+            console.warn('No sections found in course:', this.course.id);
+          }
 
-            this.checkRole();
+          this.checkRole();
         })
         .catch(error => {
-            console.error('Error fetching course:', error);
+          console.error('Error fetching course:', error);
         });
-  },
+    },
     isVideo(fileType) {
       return ['mp4', 'webm', 'ogg'].includes(fileType.toLowerCase());
     },
     enrollInCourse() {
-      if (this.isEnrolled) return;
+        if (this.isEnrolled) return;
 
-      const courseId = this.course.id;
-      console.log('Enrolling in course with ID:', courseId);
+        const courseId = this.course.id;
+        console.log('Enrolling in course with ID:', courseId);
 
-      axios.post(`/api/courses/${courseId}/enroll`)
-        .then(response => {
-          console.log('Enrollment successful:', response.data);
-          alert('Inscripción realizada con éxito.');
-          this.isEnrolled = true;
-          this.course.status = 'En curso';
-        })
-        .catch(error => {
-          console.error('Error enrolling in course:', error);
-        });
+        axios.post(`/api/courses/${courseId}/enroll`)
+            .then(response => {
+                console.log('Enrollment successful:', response.data);
+                this.isEnrolled = true;
+                this.enrollmentStatus = response.data.enrollment.status; // Usar el status de la inscripción
+                console.log('El estado del curso después de la inscripción:', this.enrollmentStatus);
+                alert('Inscripción realizada con éxito.');
+            })
+            .catch(error => {
+                console.error('Error enrolling in course:', error);
+            });
     },
     finalizeCourse() {
       const courseId = this.course.id;
@@ -257,8 +259,9 @@ export default {
       axios.post(`/api/courses/${courseId}/finalize`)
         .then(response => {
           console.log('Finalización de curso exitosa:', response.data);
+          this.enrollmentStatus = 'Finalizado';
+          console.log('El estado del curso después de finalizar:', this.enrollmentStatus);
           alert('¡Felicidades! Has finalizado el curso con éxito.');
-          this.course.status = 'Finalizado';
         })
         .catch(error => {
           console.error('Error finalizing course:', error);
@@ -304,7 +307,8 @@ export default {
             axios.get(`/api/courses/${this.course.id}/is-enrolled`)
               .then(res => {
                 this.isEnrolled = res.data.is_enrolled;
-                console.log('Enrollment status checked. Is Enrolled:', this.isEnrolled);
+                this.enrollmentStatus = res.data.status; // Almacenar el estado de la inscripción
+                console.log('Enrollment status checked. Is Enrolled:', this.isEnrolled, 'Status:', this.enrollmentStatus);
               })
               .catch(err => {
                 console.error('Error checking enrollment:', err);

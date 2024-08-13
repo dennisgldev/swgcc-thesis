@@ -17,7 +17,6 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->string('cover_image')->nullable();
             $table->foreignId('instructor_id')->constrained('users')->onDelete('cascade');
-            $table->string('status')->default('Disponible');
             $table->timestamps();
         });
     }

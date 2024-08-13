@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('user_id');
             $table->unsignedBigInteger('course_id');
+            $table->string('status')->default('En curso');
             $table->timestamps();
 
             // Llaves foráneas

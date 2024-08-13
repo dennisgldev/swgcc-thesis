@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\LessonResponse;
 use App\Models\LessonResponseAnswer;
 use App\Models\Lesson;
+use App\Models\Answer; // Asegúrate de importar el modelo Answer
 use Illuminate\Support\Facades\Log;
 
 class LessonResponseController extends Controller
@@ -46,29 +47,28 @@ class LessonResponseController extends Controller
 
     public function show($lessonId)
     {
-        $userId = auth()->user->id();
-    
+        $userId = auth()->user()->id;
+
         // Validar si el usuario está inscrito en el curso de la lección
         $lesson = Lesson::findOrFail($lessonId);
         $course = $lesson->section->course;
-        
+
         if (!$course->students()->where('user_id', $userId)->exists()) {
             return response()->json(['message' => 'No estás inscrito en este curso.'], 403);
         }
-    
+
         // Obtener las respuestas del usuario autenticado para una lección específica
         $lessonResponse = LessonResponse::with('answers')
                             ->where('user_id', $userId)
                             ->where('lesson_id', $lessonId)
                             ->first();
-    
+
         if (!$lessonResponse) {
             return response()->json(['message' => 'No se encontraron respuestas para esta lección.'], 404);
         }
-    
+
         return response()->json($lessonResponse);
     }
-    
 
     public function submit(Request $request, Lesson $lesson)
     {
@@ -83,31 +83,38 @@ class LessonResponseController extends Controller
         $userId = auth()->user()->id;  // Obtener el ID del usuario autenticado
         Log::info('Datos validados en submit:', ['user_id' => $userId, 'lesson_id' => $lesson->id, 'answers' => $validated['answers']]);
 
+        $totalScore = 0;
+        $responseDetails = [];
+
         // Iterar sobre las respuestas enviadas
         foreach ($validated['answers'] as $answerData) {
             Log::info('Procesando respuesta para la pregunta:', ['question_id' => $answerData['question_id']]);
 
-            $response = LessonResponse::create([
-                'user_id' => $userId,
-                'lesson_id' => $lesson->id,
-                'response' => '', // Puedes inicializar el campo `response` aquí si es necesario
-            ]);
-
-            // Guardar las respuestas seleccionadas
+            // Guardar las respuestas seleccionadas y calcular el score
             foreach ($answerData['selected_answers'] as $answerId) {
-                // Verificar si es un array y extraer el valor correcto
-                if (is_array($answerId)) {
-                    $answerId = array_values($answerId)[0];
+                $answer = Answer::find($answerId);
+                if ($answer && $answer->correct) { // Suponiendo que tienes un campo 'correct' en tu tabla de respuestas
+                    $totalScore += 10; // Incrementa el score basado en la respuesta correcta (ajusta el valor según sea necesario)
                 }
-                
-                Log::info('Guardando respuesta seleccionada:', ['lesson_response_id' => $response->id, 'answer_id' => $answerId]);
-                LessonResponseAnswer::create([
-                    'lesson_response_id' => $response->id,
-                    'answer_id' => $answerId,
-                ]);
+
+                // Guardar cada respuesta en los detalles del response
+                $responseDetails[] = [
+                    'question_id' => $answerData['question_id'],
+                    'selected_answers' => $answerId,
+                ];
+
+                Log::info('Guardando respuesta seleccionada:', ['lesson_response_id' => $lesson->id, 'answer_id' => $answerId]);
             }
         }
 
-        return response()->json(['message' => 'Respuestas enviadas correctamente'], 200);
+        // Crear el registro de respuesta a la lección con el score calculado y el JSON de respuestas
+        $response = LessonResponse::create([
+            'user_id' => $userId,
+            'lesson_id' => $lesson->id,
+            'response' => json_encode($responseDetails), // Almacena el JSON de las respuestas
+            'score' => $totalScore, // Almacena el score calculado
+        ]);
+
+        return response()->json(['message' => 'Respuestas enviadas correctamente', 'score' => $totalScore], 200);
     }
 }

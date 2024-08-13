@@ -1,45 +1,88 @@
 <template>
-  <v-container>
-    <v-row>
-      <v-col cols="12">
-        <h2>Cursos Disponibles</h2>
+  <v-app>
+    <!-- Header -->
+    <v-app-bar app color="white" elevation="3">
+      <v-toolbar-title class="headline">SWGCC</v-toolbar-title>
+      <v-spacer></v-spacer>
+      <v-btn text @click="createCourse" v-if="isTeacher">Crear Curso</v-btn>
+      <v-btn text @click="logout">Cerrar Sesión</v-btn>
+    </v-app-bar>
+
+    <!-- Loader -->
+    <v-overlay :value="loading" opacity="0.8">
+      <v-progress-circular indeterminate size="64">
+        <v-img src="/images/graduation-hat.png" max-width="50px"></v-img>
+      </v-progress-circular>
+    </v-overlay>
+
+    <!-- Contenido Principal -->
+    <v-main>
+      <v-container>
+        <v-row>
+          <v-col cols="12">
+            <h2 class="text-center">{{ title }}</h2>
+          </v-col>
+        </v-row>
+        <v-row>
+          <v-col
+            v-for="course in filteredCourses"
+            :key="course.id"
+            cols="12" sm="6" md="4"
+          >
+            <v-card
+              @click="goToCourse(course.id)"
+              class="course-card"
+              hover
+              elevation="2"
+              :color="getCourseColor(course.enrollment_status)"
+            >
+              <v-img
+                :src="course.cover_image ? `/storage/${course.cover_image}` : '/images/default-cover.jpg'"
+                height="150px"
+              ></v-img>
+              <v-card-title>{{ course.title }}</v-card-title>
+              <v-card-subtitle>{{ course.instructor ? course.instructor.name : 'Instructor desconocido' }}</v-card-subtitle>
+              <v-card-text>
+                <span>Status: {{ course.enrollment_status }}</span>
+              </v-card-text>
+              <v-card-actions>
+                <v-btn text @click.stop="deleteCourse(course.id)" v-if="isTeacher">Eliminar</v-btn>
+              </v-card-actions>
+            </v-card>
+          </v-col>
+        </v-row>
+        <v-row v-if="filteredCourses.length === 0 && !loading">
+          <v-col cols="12">
+            <p class="text-center">No hay cursos disponibles en este momento.</p>
+          </v-col>
+        </v-row>
+      </v-container>
+    </v-main>
+
+    <!-- Bottom Navigation -->
+    <v-bottom-navigation
+      v-model="bottomNav"
+      color="white"
+      grow
+    >
+      <v-btn @click="changeView('catalog')">
+        <span>Catálogo</span>
+      </v-btn>
+      <v-btn @click="changeView('myCourses')">
+        <span>Mis Cursos</span>
+      </v-btn>
+      <v-btn @click="changeView('reports')">
+        <span>Reportes</span>
+      </v-btn>
+    </v-bottom-navigation>
+
+    <!-- Footer -->
+    <v-footer app color="white" flat>
+      <v-col class="text-center">
+        &copy; 2024 SWGCC
       </v-col>
-    </v-row>
-    <v-row>
-      <v-col
-        v-for="course in courses"
-        :key="course.id"
-        cols="12" sm="6" md="4"
-      >
-        <v-card @click="goToCourse(course.id)" class="course-card" hover elevation="3">
-          <v-img
-            :src="course.cover_image ? `/storage/${course.cover_image}` : '/images/default-cover.jpg'"
-            height="200px"
-          ></v-img>
-          <v-card-title>{{ course.title }}</v-card-title>
-          <v-card-subtitle>{{ course.instructor ? course.instructor.name : 'Instructor desconocido' }}</v-card-subtitle>
-          <v-card-actions>
-            <v-btn icon @click.stop="editCourse(course.id)" v-if="isTeacher">
-              <v-icon>mdi-pencil</v-icon>
-            </v-btn>
-            <v-btn icon @click.stop="deleteCourse(course.id)" v-if="isTeacher">
-              <v-icon>mdi-delete</v-icon>
-            </v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-col>
-    </v-row>
-    <v-row v-if="courses.length === 0">
-      <v-col cols="12">
-        <p>No hay cursos disponibles en este momento.</p>
-      </v-col>
-    </v-row>
-    <v-row v-if="isTeacher">
-      <v-col cols="12">
-        <v-btn color="primary" @click="createCourse">Crear Nuevo Curso</v-btn>
-      </v-col>
-    </v-row>
-  </v-container>
+    </v-footer>
+  </v-app>
 </template>
 
 <script>
@@ -50,71 +93,218 @@ export default {
   data() {
     return {
       courses: [],
+      enrolledCourses: [],
       isTeacher: false,
+      loading: true,
+      bottomNav: 'catalog',
+      title: 'Catálogo de Cursos',
     };
+  },
+  computed: {
+    filteredCourses() {
+      if (this.bottomNav === 'catalog') {
+        return this.courses;
+      } else if (this.bottomNav === 'myCourses') {
+        return this.enrolledCourses.filter(course => course.enrollment_status === 'En curso' || course.enrollment_status === 'Pendiente');
+      }
+      return [];
+    }
   },
   methods: {
     fetchCourses() {
-  axios.get('/api/courses')
-    .then(response => {
-      this.courses = response.data;
-      this.courses.forEach(course => {
-        if (!course.instructor) {
-          console.error(`El curso con ID ${course.id} no tiene un instructor asociado.`);
+      this.loading = true;
+      console.log('Fetching courses...');
+
+      this.getUserData()
+        .then(userId => {
+          axios.get('/api/courses')
+            .then(response => {
+              console.log('Courses fetched:', response.data);
+              this.courses = response.data.map(course => {
+                const enrollment = course.enrollments?.find(enrollment => enrollment.user_id === userId);
+                return {
+                  ...course,
+                  enrollment_status: enrollment ? enrollment.status : 'Disponible',
+                };
+              });
+            })
+            .catch(error => {
+              console.error('Error fetching courses:', error);
+            })
+            .finally(() => {
+              this.loading = false;
+              console.log('Courses fetch completed.');
+            });
+        })
+        .catch(error => {
+          console.error('Error getting user data:', error);
+          this.loading = false;
+        });
+    },
+    fetchEnrolledCourses() {
+      this.loading = true;
+      console.log('Fetching enrolled courses...');
+      axios.get('/api/enrolled-courses')
+        .then(response => {
+          console.log('Enrolled courses fetched:', response.data);
+          this.enrolledCourses = response.data;
+        })
+        .catch(error => {
+          console.error('Error fetching enrolled courses:', error);
+        })
+        .finally(() => {
+          this.loading = false;
+          console.log('Enrolled courses fetch completed.');
+        });
+    },
+    getUserData() {
+      return new Promise((resolve, reject) => {
+        const userId = this.$store?.state?.user?.id;
+        if (userId) {
+          resolve(userId);
+        } else {
+          axios.get('/user')
+            .then(response => {
+              this.$store.commit('setUser', response.data);
+              resolve(response.data.id);
+            })
+            .catch(error => {
+              console.error('Error fetching user data:', error);
+              reject(error);
+            });
         }
       });
-    })
-    .catch(error => {
-      console.error('Error al obtener los cursos:', error);
-    });
-},
+    },
     goToCourse(courseId) {
       this.$router.push(`/courses/${courseId}`);
     },
     createCourse() {
       this.$router.push('/courses/create');
     },
-    editCourse(courseId) {
-      this.$router.push(`/courses/${courseId}/edit`);
-    },
     deleteCourse(courseId) {
+      console.log('Deleting course with ID:', courseId);
       axios.delete(`/api/courses/${courseId}`)
         .then(response => {
+          console.log('Course deleted:', response.data);
           this.fetchCourses();
           alert('Curso eliminado con éxito');
         })
         .catch(error => {
-          console.error('Error al eliminar el curso:', error);
+          console.error('Error deleting course:', error);
         });
     },
     checkRole() {
-      console.log('Verificando rol del usuario...');
-      axios.get('/api/user')
-        .then(response => {
-          console.log('Respuesta del usuarioooo:', response.data);
-          this.isTeacher = response.data.role_id === 2; // Asume que el ID 2 es para "Docente"
-          console.log('Es docente:', this.isTeacher);
+      console.log('Checking user role...');
+      this.getUserData().then(userId => {
+        axios.get(`/api/users/${userId}`)
+          .then(response => {
+            this.isTeacher = response.data.role_id === 2;
+            console.log('User role:', this.isTeacher ? 'Teacher' : 'Student');
+          })
+          .catch(error => {
+            console.error('Error fetching user role:', error);
+          });
+      });
+    },
+    logout() {
+      console.log('Logging out...');
+      axios.post('/logout')
+        .then(() => {
+          console.log('Logout successful.');
+          this.$router.push('/login');
         })
         .catch(error => {
-          console.error('Error al obtener el rol del usuario:', error);
+          console.error('Error logging out:', error);
         });
+    },
+    changeView(view) {
+      this.bottomNav = view;
+      console.log('Changing view to:', view);
+      if (view === 'catalog') {
+        this.title = 'Catálogo de Cursos';
+        this.fetchCourses();
+      } else if (view === 'myCourses') {
+        this.title = 'Mis Cursos';
+        this.fetchEnrolledCourses();
+      } else if (view === 'reports') {
+        this.title = 'Reportes';
+      }
+    },
+    getCourseColor(status) {
+      console.log('Getting color for status:', status);
+      switch (status) {
+        case 'Disponible':
+          return 'light-green lighten-4';
+        case 'En curso':
+          return 'amber lighten-4';
+        case 'Finalizado':
+          return 'light-blue lighten-4';
+        default:
+          return 'grey lighten-4';
+      }
     }
   },
   created() {
-    console.log('Componente creado, inicializando...');
+    console.log('Component created. Initializing data fetch...');
     this.fetchCourses();
+    this.fetchEnrolledCourses();
     this.checkRole();
   }
 };
 </script>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+
 .course-card {
   cursor: pointer;
   transition: transform 0.3s;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  font-family: 'Roboto', sans-serif;
 }
 
 .course-card:hover {
-  transform: scale(1.05);
+  transform: scale(1.02);
+}
+
+.text-center {
+  text-align: center;
+}
+
+v-overlay {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+v-overlay img {
+  width: 50px;
+  height: 50px;
+}
+
+v-btn {
+  font-family: 'Roboto', sans-serif;
+  font-weight: 500;
+}
+
+v-toolbar-title {
+  font-family: 'Roboto', sans-serif;
+  font-weight: 700;
+}
+
+v-card-title {
+  font-family: 'Roboto', sans-serif;
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+v-app-bar {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 </style>
