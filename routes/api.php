@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AuthController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\RoleController;
@@ -36,6 +37,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/users/{user}', [UserController::class, 'update']);
     Route::post('/users', [UserController::class, 'store']);
     Route::delete('/users/{user}', [UserController::class, 'destroy']);
+});
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/change-password', [AuthController::class, 'changePassword']);
 });
 
 // Rutas protegidas por autenticación para la gestión de cursos

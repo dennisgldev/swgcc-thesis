@@ -40,6 +40,7 @@ class CourseController extends Controller
         $userId = auth()->id(); // Obtener el ID del usuario autenticado
 
         $course = Course::with([
+            'instructor',
             'sections.lessons.questions.answers',
             'media', // Archivos del curso
             'sections.media', // Archivos de las secciones
@@ -47,6 +48,7 @@ class CourseController extends Controller
                 $query->where('user_id', $userId);
             }
         ])->findOrFail($id);
+        Log::info($course);
 
         // Obtener el estado de la inscripción del usuario
         $enrollment = $course->enrollments->first();
@@ -55,14 +57,14 @@ class CourseController extends Controller
         // Agregar la URL completa a los archivos para que puedan ser accedidos desde la vista
         if ($course->media) {
             $course->media->each(function ($media) {
-                $media->file_url = asset('storage/' . $media->file_path);
+                $media->file_url = asset('uploads/' . $media->file_path);
             });
         }
 
         $course->sections->each(function ($section) {
             if ($section->media) {
                 $section->media->each(function ($media) {
-                    $media->file_url = asset('storage/' . $media->file_path);
+                    $media->file_url = asset('uploads/' . $media->file_path);
                 });
             }
 
@@ -340,7 +342,7 @@ class CourseController extends Controller
             return response()->json(['message' => 'No estás inscrito en este curso.'], 403);
         }
 
-        // Calcular el puntaje basado en las respuestas a las lecciones
+        // Calcular el puntaje basado en las últimas respuestas a las lecciones
         $userScore = $this->calculateUserScore($course, $user);
         Log::info('Score calculado', ['score' => $userScore]);
 
@@ -365,20 +367,50 @@ class CourseController extends Controller
 
     private function calculateUserScore($course, $user)
     {
-        $lessonResponses = LessonResponse::where('user_id', $user->id)
-            ->whereHas('lesson.section', function ($query) use ($course) {
-                $query->where('course_id', $course->id);
-            })
-            ->get();
-
         $totalScore = 0;
-        $totalLessons = 0;
 
-        foreach ($lessonResponses as $response) {
-            $totalScore += $response->score;
-            $totalLessons++;
+        // Obtener todas las secciones del curso
+        foreach ($course->sections as $section) {
+            // Obtener todas las lecciones de la sección
+            foreach ($section->lessons as $lesson) {
+                // Obtener la última respuesta del usuario para esta lección
+                $lastLessonResponse = LessonResponse::where('lesson_id', $lesson->id)
+                    ->where('user_id', $user->id)
+                    ->orderBy('created_at', 'desc')
+                    ->first();
+
+                if ($lastLessonResponse) {
+                    // Sumar el puntaje de la última respuesta a la puntuación total
+                    $totalScore += $lastLessonResponse->score;
+                }
+            }
         }
 
-        return $totalLessons > 0 ? $totalScore / $totalLessons : 0;
+        return $totalScore;
     }
+
+    public function create()
+    {
+        return response()->view('welcome', [], 200);
+    }
+
+
+//    private function calculateUserScore($course, $user)
+//    {
+//        $lessonResponses = LessonResponse::where('user_id', $user->id)
+//            ->whereHas('lesson.section', function ($query) use ($course) {
+//                $query->where('course_id', $course->id);
+//            })
+//            ->get();
+//
+//        $totalScore = 0;
+//        $totalLessons = 0;
+//
+//        foreach ($lessonResponses as $response) {
+//            $totalScore += $response->score;
+//            $totalLessons++;
+//        }
+//
+//        return $totalLessons > 0 ? $totalScore / $totalLessons : 0;
+//    }
 }

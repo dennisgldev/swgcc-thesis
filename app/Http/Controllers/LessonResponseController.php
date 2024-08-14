@@ -53,9 +53,10 @@ class LessonResponseController extends Controller
         $lesson = Lesson::findOrFail($lessonId);
         $course = $lesson->section->course;
 
-        if (!$course->students()->where('user_id', $userId)->exists()) {
-            return response()->json(['message' => 'No estás inscrito en este curso.'], 403);
-        }
+        Log::info(!$course->students()->where('user_id', $userId)->exists());
+//        if (!$course->students()->where('user_id', $userId)->exists()) {
+//            return response()->json(['message' => 'No estás inscrito en este curso.'], 403);
+//        }
 
         // Obtener las respuestas del usuario autenticado para una lección específica
         $lessonResponse = LessonResponse::with('answers')
@@ -90,11 +91,16 @@ class LessonResponseController extends Controller
         foreach ($validated['answers'] as $answerData) {
             Log::info('Procesando respuesta para la pregunta:', ['question_id' => $answerData['question_id']]);
 
+            // Buscar la pregunta para obtener su puntaje asignado
+            $question = $lesson->questions()->where('id', $answerData['question_id'])->first();
+            $questionPoints = $question->points;
+
             // Guardar las respuestas seleccionadas y calcular el score
             foreach ($answerData['selected_answers'] as $answerId) {
                 $answer = Answer::find($answerId);
-                if ($answer && $answer->correct) { // Suponiendo que tienes un campo 'correct' en tu tabla de respuestas
-                    $totalScore += 10; // Incrementa el score basado en la respuesta correcta (ajusta el valor según sea necesario)
+                if ($answer && $answer->correct) {
+                    // Incrementa el score basado en la respuesta correcta usando el puntaje de la pregunta
+                    $totalScore += $questionPoints;
                 }
 
                 // Guardar cada respuesta en los detalles del response

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
@@ -61,4 +62,43 @@ class AuthController extends Controller
     {
         return response()->json(Auth::user());
     }
+
+    public function changePassword(Request $request)
+    {
+        Log::info('Intentando cambiar la contraseña', [
+            'headers' => $request->headers->all(),
+            'user' => Auth::user(),
+        ]);
+
+        $user = Auth::user();
+        Log::info("Usuario autenticado: {$user->id}");
+
+        if (Auth::check()) {
+            $user = Auth::user();
+            Log::info("Usuario autenticado: {$user->id}");
+        } else {
+            Log::warning("No hay usuario autenticado");
+            return response()->json(['message' => 'Usuario no autenticado'], 401);
+        }
+
+        // Validar la solicitud
+        $request->validate([
+            'current_password' => 'required',
+            'new_password' => 'required|min:8|confirmed', // `confirmed` asegura que haya un `new_password_confirmation` en la solicitud
+        ]);
+
+        // Verificar que la contraseña actual es correcta
+        if (!Hash::check($request->current_password, $user->password)) {
+            return response()->json(['message' => 'La contraseña actual no es correcta.'], 400);
+        }
+
+        // Actualizar la contraseña del usuario
+        $user->password = Hash::make($request->new_password);
+        $user->save();
+
+        Log::info("Contraseña cambiada con éxito para el usuario: {$user->id}");
+
+        return response()->json(['message' => 'Contraseña cambiada con éxito.'], 200);
+    }
 }
+

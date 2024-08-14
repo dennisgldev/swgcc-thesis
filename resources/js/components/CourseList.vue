@@ -1,16 +1,21 @@
-<template>    <v-app>
+<template>
+    <v-app>
         <!-- Header -->
         <v-app-bar app color="white" elevation="3">
             <v-toolbar-title class="headline">SWGCC</v-toolbar-title>
             <v-spacer></v-spacer>
+            <v-toolbar-title class="text-center">
+                Hola, {{ firstName }}
+            </v-toolbar-title>
+            <v-spacer></v-spacer>
+            <v-btn text @click="openChangePasswordDialog">Cambiar Contraseña</v-btn>
             <v-btn text @click="createCourse" v-if="isTeacher">Crear Curso</v-btn>
             <v-btn text @click="logout">Cerrar Sesión</v-btn>
         </v-app-bar>
 
         <!-- Loader -->
         <v-overlay :value="loading" opacity="0.8">
-            <v-progress-circular indeterminate size="64">
-            </v-progress-circular>
+            <v-progress-circular indeterminate size="64"></v-progress-circular>
         </v-overlay>
 
         <!-- Contenido Principal -->
@@ -25,14 +30,13 @@
                     <v-col
                         v-for="course in filteredCourses"
                         :key="course.id"
-                        cols="12" sm="6" md="4"
+                        cols="12" sm="6" md="3"
                     >
                         <v-card
                             @click="goToCourse(course.id)"
                             class="course-card"
                             hover
                             elevation="2"
-                            :color="getCourseColor(course.enrollment_status)"
                         >
                             <v-img
                                 :src="course.cover_image ? `/uploads/${course.cover_image}` : '/images/default-cover.jpg'"
@@ -41,10 +45,22 @@
                             <v-card-title>{{ course.title }}</v-card-title>
                             <v-card-subtitle>{{ course.instructor ? course.instructor.name : 'Instructor desconocido' }}</v-card-subtitle>
                             <v-card-text>
-                                <span>Status: {{ course.enrollment_status }}</span>
+                                <v-chip
+                                    :color="getCourseChipColor(course.enrollment_status)"
+                                    dark
+                                    class="ma-2"
+                                >
+                                    {{ course.enrollment_status }}
+                                </v-chip>
                             </v-card-text>
                             <v-card-actions>
-                                <v-btn text @click.stop="deleteCourse(course.id)" v-if="isTeacher">Eliminar</v-btn>
+                                <v-btn
+                                    text
+                                    @click.stop="deleteCourse(course.id)"
+                                    v-if="isTeacher && course.instructor_id === userId"
+                                >
+                                    Eliminar
+                                </v-btn>
                             </v-card-actions>
                         </v-card>
                     </v-col>
@@ -66,12 +82,12 @@
             <v-btn @click="changeView('catalog')">
                 <span>Catálogo</span>
             </v-btn>
-            <v-btn @click="changeView('myCourses')">
-                <span>Mis Cursos</span>
-            </v-btn>
-            <v-btn @click="changeView('reports')">
-                <span>Reportes</span>
-            </v-btn>
+<!--            <v-btn @click="changeView('myCourses')">-->
+<!--                <span>Mis Cursos</span>-->
+<!--            </v-btn>-->
+<!--            <v-btn @click="changeView('reports')">-->
+<!--                <span>Reportes</span>-->
+<!--            </v-btn>-->
         </v-bottom-navigation>
 
         <!-- Footer -->
@@ -80,6 +96,45 @@
                 &copy; 2024 SWGCC
             </v-col>
         </v-footer>
+
+        <!-- Dialogo para cambiar la contraseña -->
+        <v-dialog v-model="changePasswordDialog" persistent max-width="500">
+            <v-card>
+                <v-card-title>
+                    <span class="headline">Cambiar Contraseña</span>
+                </v-card-title>
+                <v-card-text>
+                    <v-form ref="changePasswordForm" v-model="valid" lazy-validation>
+                        <v-text-field
+                            label="Contraseña Actual"
+                            v-model="currentPassword"
+                            :rules="[rules.required]"
+                            type="password"
+                            required
+                        ></v-text-field>
+                        <v-text-field
+                            label="Nueva Contraseña"
+                            v-model="newPassword"
+                            :rules="[rules.required, rules.min]"
+                            type="password"
+                            required
+                        ></v-text-field>
+                        <v-text-field
+                            label="Confirmar Nueva Contraseña"
+                            v-model="confirmPassword"
+                            :rules="[rules.required, confirmPasswordRule]"
+                            type="password"
+                            required
+                        ></v-text-field>
+                    </v-form>
+                </v-card-text>
+                <v-card-actions>
+                    <v-spacer></v-spacer>
+                    <v-btn color="primary" text @click="submitChangePassword">Cambiar</v-btn>
+                    <v-btn color="secondary" text @click="closeChangePasswordDialog">Cancelar</v-btn>
+                </v-card-actions>
+            </v-card>
+        </v-dialog>
     </v-app>
 </template>
 
@@ -97,6 +152,18 @@ export default {
             bottomNav: 'catalog',
             title: 'Catálogo de Cursos',
             userId: null,
+            userName: '', // Nueva propiedad para almacenar el nombre completo del usuario
+            changePasswordDialog: false,
+            currentPassword: '',
+            newPassword: '',
+            confirmPassword: '', // Asegúrate de que esta propiedad esté definida
+            feedbackMessage: '',
+            feedbackDialog: false,
+            valid: true,
+            rules: {
+                required: value => !!value || 'Este campo es requerido.',
+                min: value => value.length >= 8 || 'La nueva contraseña debe tener al menos 8 caracteres.',
+            },
         };
     },
     computed: {
@@ -107,6 +174,12 @@ export default {
                 return this.enrolledCourses.filter(course => course.enrollment_status === 'En curso' || course.enrollment_status === 'Pendiente');
             }
             return [];
+        },
+        firstName() {
+            return this.userName.split(' ')[0]; // Obtener solo la primera palabra del nombre
+        },
+        confirmPasswordRule() {
+            return value => value === this.newPassword || 'Las contraseñas no coinciden.';
         }
     },
     methods: {
@@ -154,6 +227,7 @@ export default {
                 .then(response => {
                     this.userId = response.data.id;
                     this.isTeacher = response.data.role_id === 2;
+                    this.userName = response.data.name; // Obtener el nombre completo del usuario
                     this.fetchCourses();
                     this.fetchEnrolledCourses();
                 })
@@ -192,6 +266,40 @@ export default {
                     console.error('Error logging out:', error);
                 });
         },
+        openChangePasswordDialog() {
+            this.changePasswordDialog = true;
+        },
+        closeChangePasswordDialog() {
+            this.changePasswordDialog = false;
+            this.currentPassword = '';
+            this.newPassword = '';
+            this.confirmPassword = '';
+        },
+        submitChangePassword() {
+            axios.post('/api/change-password', {
+                current_password: this.currentPassword,
+                new_password: this.newPassword,
+                new_password_confirmation: this.confirmPassword
+            })
+                .then(response => {
+                    // Maneja la respuesta exitosa
+                    console.log('Contraseña cambiada con éxito:', response.data.message);
+                    this.feedbackMessage = 'Contraseña cambiada con éxito.';
+                    this.feedbackDialog = true;
+                    this.closeChangePasswordDialog(); // Cierra el diálogo después del cambio exitoso
+                })
+                .catch(error => {
+                    // Maneja el error
+                    if (error.response && error.response.data.errors) {
+                        console.error('Error changing password:', error.response.data.errors);
+                        this.feedbackMessage = error.response.data.errors.new_password ? error.response.data.errors.new_password[0] : 'Error desconocido';
+                    } else {
+                        console.error('Error changing password:', error);
+                        this.feedbackMessage = 'Error al cambiar la contraseña.';
+                    }
+                    this.feedbackDialog = true;
+                });
+        },
         changeView(view) {
             this.bottomNav = view;
             console.log('Changing view to:', view);
@@ -205,17 +313,16 @@ export default {
                 this.title = 'Reportes';
             }
         },
-        getCourseColor(status) {
-            console.log('Getting color for status:', status);
+        getCourseChipColor(status) {
             switch (status) {
                 case 'Disponible':
-                    return 'light-green lighten-4';
+                    return 'light-green lighten-1';
                 case 'En curso':
-                    return 'amber lighten-4';
+                    return 'amber lighten-1';
                 case 'Finalizado':
-                    return 'light-blue lighten-4';
+                    return 'light-blue lighten-1';
                 default:
-                    return 'grey lighten-4';
+                    return 'grey lighten-1';
             }
         }
     },
@@ -227,8 +334,6 @@ export default {
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
-
 .course-card {
     cursor: pointer;
     transition: transform 0.3s;
@@ -280,22 +385,22 @@ export default {
 .app-bar {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 
-  font-family: 'Roboto', sans-serif;
-  font-weight: 500;
+    font-family: 'Roboto', sans-serif;
+    font-weight: 500;
 }
 
-v-toolbar-title {
-  font-family: 'Roboto', sans-serif;
-  font-weight: 700;
+.v-toolbar-title {
+    font-family: 'Roboto', sans-serif;
+    font-weight: 700;
 }
 
-v-card-title {
-  font-family: 'Roboto', sans-serif;
-  font-weight: 700;
-  font-size: 1.2rem;
+.v-card-title {
+    font-family: 'Roboto', sans-serif;
+    font-weight: 700;
+    font-size: 1.2rem;
 }
 
-v-app-bar {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.v-app-bar {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 </style>
