@@ -1,5 +1,4 @@
-<template>
-    <v-app>
+<template>    <v-app>
         <!-- Header -->
         <v-app-bar app color="white" elevation="3">
             <v-toolbar-title class="headline">SWGCC</v-toolbar-title>
@@ -11,7 +10,6 @@
         <!-- Loader -->
         <v-overlay :value="loading" opacity="0.8">
             <v-progress-circular indeterminate size="64">
-                <v-img src="/images/graduation-hat.png" max-width="50px"></v-img>
             </v-progress-circular>
         </v-overlay>
 
@@ -281,5 +279,23 @@ export default {
 
 .app-bar {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+  font-family: 'Roboto', sans-serif;
+  font-weight: 500;
+}
+
+v-toolbar-title {
+  font-family: 'Roboto', sans-serif;
+  font-weight: 700;
+}
+
+v-card-title {
+  font-family: 'Roboto', sans-serif;
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+v-app-bar {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 </style>
