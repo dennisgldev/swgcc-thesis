@@ -46,11 +46,11 @@
                             <v-card-subtitle>{{ course.instructor ? course.instructor.name : 'Instructor desconocido' }}</v-card-subtitle>
                             <v-card-text>
                                 <v-chip
-                                    :color="getCourseChipColor(course.enrollment_status)"
+                                    :color="getCourseChipColor(course.status)"
                                     dark
                                     class="ma-2"
                                 >
-                                    {{ course.enrollment_status }}
+                                    {{ course.status }}
                                 </v-chip>
                             </v-card-text>
                             <v-card-actions>
@@ -73,22 +73,10 @@
             </v-container>
         </v-main>
 
-        <!-- Bottom Navigation -->
-        <v-bottom-navigation
-            v-model="bottomNav"
-            color="white"
-            grow
-        >
-            <v-btn @click="changeView('catalog')">
-                <span>Catálogo</span>
-            </v-btn>
-<!--            <v-btn @click="changeView('myCourses')">-->
-<!--                <span>Mis Cursos</span>-->
-<!--            </v-btn>-->
-<!--            <v-btn @click="changeView('reports')">-->
-<!--                <span>Reportes</span>-->
-<!--            </v-btn>-->
-        </v-bottom-navigation>
+        <!-- Botón para Generar Reporte en PDF -->
+        <v-row justify="center" class="mt-5">
+            <v-btn color="primary" @click="generatePdf">Generar Reporte en PDF</v-btn>
+        </v-row>
 
         <!-- Footer -->
         <v-footer app color="white" flat>
@@ -140,6 +128,8 @@
 
 <script>
 import axios from 'axios';
+import { jsPDF } from "jspdf";
+import "jspdf-autotable"; // Importando la librería para tablas
 
 export default {
     name: 'CourseList',
@@ -171,7 +161,7 @@ export default {
             if (this.bottomNav === 'catalog') {
                 return this.courses;
             } else if (this.bottomNav === 'myCourses') {
-                return this.enrolledCourses.filter(course => course.enrollment_status === 'En curso' || course.enrollment_status === 'Pendiente');
+                return this.enrolledCourses.filter(course => course.status === 'En curso' || course.status === 'Finalizado');
             }
             return [];
         },
@@ -183,48 +173,190 @@ export default {
         }
     },
     methods: {
-        fetchCourses() {
+        async fetchCourses() {
             this.loading = true;
             console.log('Fetching courses...');
 
-            axios.get('/api/courses')
-                .then(response => {
-                    console.log('Courses fetched:', response.data);
-                    this.courses = response.data.map(course => {
-                        const enrollment = course.enrollments?.find(enrollment => enrollment.user_id === this.userId);
-                        return {
-                            ...course,
-                            enrollment_status: enrollment ? enrollment.status : 'Disponible',
-                        };
-                    });
-                })
-                .catch(error => {
-                    console.error('Error fetching courses:', error);
-                })
-                .finally(() => {
-                    this.loading = false;
-                    console.log('Courses fetch completed.');
+            try {
+                const response = await axios.get('/api/courses');
+                console.log('Courses API Response:', response);
+                this.courses = response.data.map(course => {
+                    const enrollment = course.enrollments?.find(enrollment => enrollment.user_id === this.userId);
+                    return {
+                        ...course,
+                        status: enrollment ? enrollment.status : 'Disponible',
+                    };
                 });
+                console.log('Courses:', this.courses);
+            } catch (error) {
+                console.error('Error fetching courses:', error.response ? error.response : error);
+            } finally {
+                this.loading = false;
+                console.log('Courses fetch completed.');
+            }
         },
-        fetchEnrolledCourses() {
+        async fetchEnrolledCourses() {
             this.loading = true;
             console.log('Fetching enrolled courses...');
-            axios.get('/api/enrolled-courses')
-                .then(response => {
-                    console.log('Enrolled courses fetched:', response.data);
-                    this.enrolledCourses = response.data;
-                })
-                .catch(error => {
-                    console.error('Error fetching enrolled courses:', error);
-                })
-                .finally(() => {
-                    this.loading = false;
-                    console.log('Enrolled courses fetch completed.');
+
+            try {
+                const response = await axios.get('/api/enrolled-courses');
+                console.log('Enrolled Courses API Response:', response);
+                this.enrolledCourses = response.data;
+                console.log('Enrolled Courses:', this.enrolledCourses);
+            } catch (error) {
+                console.error('Error fetching enrolled courses:', error.response ? error.response : error);
+            } finally {
+                this.loading = false;
+                console.log('Enrolled courses fetch completed.');
+            }
+        },
+        async fetchLastGrades() {
+            console.log("Fetching last grades for each course...");
+            for (let course of this.enrolledCourses) {
+                try {
+                    const courseResponse = await axios.get(`/api/courses/${course.id}`);
+                    const lastSection = courseResponse.data.sections.slice(-1)[0];
+                    const lastLesson = lastSection.lessons.slice(-1)[0];
+                    const lessonResponse = await axios.get(`/api/lessons/${lastLesson.id}/responses`);
+                    course.last_grade = lessonResponse.data ? lessonResponse.data.score : null;
+                    console.log(`Last grade for course ${course.title}: ${course.last_grade}`);
+                } catch (error) {
+                    console.error(`Error fetching last grade for course ${course.title}:`, error);
+                    course.last_grade = null; // Si hay un error, asegura que no haya undefined
+                }
+            }
+        },
+        async generatePdf() {
+            // Asegurarse de que la data esté cargada antes de generar el PDF
+            console.log("Iniciando generación de PDF...");
+
+            await this.fetchCourses();
+            console.log("Cursos cargados:", this.courses);
+
+            await this.fetchEnrolledCourses();
+            console.log("Cursos inscritos cargados:", this.enrolledCourses);
+
+            await this.fetchLastGrades();
+            console.log("Calificaciones finales cargadas para los cursos:", this.enrolledCourses);
+
+            const doc = new jsPDF();
+
+            // Título del Reporte
+            console.log("Generando título del reporte...");
+            doc.setFontSize(22);
+            doc.setTextColor(33, 150, 243); // Azul para el título
+            doc.text('Reporte de Cursos', 105, 20, null, null, 'center');
+
+            // Subtítulo con el nombre del usuario
+            console.log("Añadiendo nombre del usuario al reporte:", this.userName);
+            doc.setFontSize(14);
+            doc.setTextColor(0, 0, 0); // Negro para el texto
+            doc.text(`Usuario: ${this.userName}`, 105, 30, null, null, 'center');
+
+            // Listado de cursos en curso
+            console.log("Añadiendo listado de cursos en curso...");
+            doc.setFontSize(16);
+            doc.text('Cursos en curso:', 14, 45);
+
+            let y = 55;
+            let enCursoCourses = this.enrolledCourses.filter(course => course.status === 'En curso');
+            if (enCursoCourses.length === 0) {
+                console.log("No hay cursos en curso.");
+                doc.setFontSize(12);
+                doc.text('Ningún curso en curso', 14, y);
+                y += 10;
+            } else {
+                enCursoCourses.forEach((course, index) => {
+                    console.log(`Añadiendo curso en curso: ${course.title}`);
+                    doc.setFontSize(12);
+                    doc.text(`${index + 1}. ${course.title}`, 14, y);
+                    if (course.last_grade !== null && course.last_grade !== undefined) {
+                        doc.text(`Última Calificación: ${course.last_grade}`, 14, y + 8);
+                        y += 12;
+                    }
+                    y += 8;
                 });
+            }
+
+            // Listado de cursos finalizados
+            console.log("Añadiendo listado de cursos finalizados...");
+            doc.setFontSize(16);
+            doc.text('Cursos finalizados:', 14, y + 15);
+
+            y += 25;
+            let finalizadoCourses = this.enrolledCourses.filter(course => course.status === 'Finalizado');
+            if (finalizadoCourses.length === 0) {
+                console.log("No hay cursos finalizados.");
+                doc.setFontSize(12);
+                doc.text('Ningún curso finalizado', 14, y);
+                y += 10;
+            } else {
+                finalizadoCourses.forEach((course, index) => {
+                    console.log(`Añadiendo curso finalizado: ${course.title}`);
+                    doc.setFontSize(12);
+                    doc.text(`${index + 1}. ${course.title}`, 14, y);
+                    if (course.last_grade !== null && course.last_grade !== undefined) {
+                        doc.text(`Última Calificación: ${course.last_grade}`, 14, y + 8);
+                        y += 12;
+                    }
+                    y += 8;
+                });
+            }
+
+            // Tabla de resumen
+            console.log("Generando tabla de resumen...");
+            doc.autoTable({
+                startY: y + 20,
+                head: [['Curso', 'Estado', 'Última Calificación']],
+                body: this.enrolledCourses.map(course => {
+                    console.log(`Añadiendo fila a la tabla: Curso: ${course.title}, Estado: ${course.status}, Última Calificación: ${course.last_grade !== null && course.last_grade !== undefined ? course.last_grade : 'N/A'}`);
+                    return [
+                        course.title,
+                        course.status,
+                        course.last_grade !== null && course.last_grade !== undefined ? course.last_grade : 'N/A'
+                    ];
+                }),
+                theme: 'grid',
+                headStyles: { fillColor: [33, 150, 243] }, // Azul para el encabezado
+            });
+
+            // Añadir un gráfico de barras para el progreso
+            console.log("Generando gráfico de barras para el progreso...");
+            const completedCourses = this.enrolledCourses.filter(course => course.status === 'Finalizado').length;
+            const inProgressCourses = this.enrolledCourses.filter(course => course.status === 'En curso').length;
+            const chartX = 14;
+            const chartY = doc.autoTable.previous.finalY + 20;
+            const chartWidth = 160;
+            const chartHeight = 10;
+
+            // Barra de "En curso"
+            doc.setFillColor(33, 150, 243); // Azul para "En curso"
+            doc.rect(chartX, chartY, chartWidth * (inProgressCourses / this.enrolledCourses.length), chartHeight, 'F');
+            doc.setTextColor(255, 255, 255); // Blanco para el texto
+            doc.text(`En curso: ${inProgressCourses}`, chartX + 2, chartY + 7);
+
+            // Barra de "Finalizados"
+            doc.setFillColor(76, 175, 80); // Verde para "Finalizados"
+            doc.rect(chartX, chartY + 15, chartWidth * (completedCourses / this.enrolledCourses.length), chartHeight, 'F');
+            doc.text(`Finalizados: ${completedCourses}`, chartX + 2, chartY + 22);
+
+            // Pie de página
+            console.log("Añadiendo pie de página...");
+            doc.setFontSize(10);
+            doc.setTextColor(150, 150, 150); // Gris para el pie de página
+            doc.text('Reporte generado por SWGCC', 105, 290, null, null, 'center');
+
+            // Descargar el PDF con el nombre del usuario
+            const pdfFileName = `Reporte_de_${this.userName}.pdf`;
+            console.log(`Guardando PDF con el nombre: ${pdfFileName}`);
+            doc.save(pdfFileName);
         },
         getUserId() {
+            console.log('Fetching user data...');
             axios.get('/api/user')
                 .then(response => {
+                    console.log('User API Response:', response);
                     this.userId = response.data.id;
                     this.isTeacher = response.data.role_id === 2;
                     this.userName = response.data.name; // Obtener el nombre completo del usuario
@@ -232,7 +364,7 @@ export default {
                     this.fetchEnrolledCourses();
                 })
                 .catch(error => {
-                    console.error('Error fetching user data:', error);
+                    console.error('Error fetching user data:', error.response ? error.response : error);
                     this.$router.push('/login');
                 });
         },
@@ -251,7 +383,7 @@ export default {
                     alert('Curso eliminado con éxito');
                 })
                 .catch(error => {
-                    console.error('Error deleting course:', error);
+                    console.error('Error deleting course:', error.response ? error.response : error);
                 });
         },
         logout() {
@@ -263,7 +395,7 @@ export default {
                     this.$router.push('/login');
                 })
                 .catch(error => {
-                    console.error('Error logging out:', error);
+                    console.error('Error logging out:', error.response ? error.response : error);
                 });
         },
         openChangePasswordDialog() {
@@ -282,14 +414,12 @@ export default {
                 new_password_confirmation: this.confirmPassword
             })
                 .then(response => {
-                    // Maneja la respuesta exitosa
                     console.log('Contraseña cambiada con éxito:', response.data.message);
                     this.feedbackMessage = 'Contraseña cambiada con éxito.';
                     this.feedbackDialog = true;
-                    this.closeChangePasswordDialog(); // Cierra el diálogo después del cambio exitoso
+                    this.closeChangePasswordDialog();
                 })
                 .catch(error => {
-                    // Maneja el error
                     if (error.response && error.response.data.errors) {
                         console.error('Error changing password:', error.response.data.errors);
                         this.feedbackMessage = error.response.data.errors.new_password ? error.response.data.errors.new_password[0] : 'Error desconocido';
