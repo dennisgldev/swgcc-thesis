@@ -5,6 +5,7 @@
             <v-toolbar-title class="headline">SWGCC - Panel de Administración</v-toolbar-title>
             <v-spacer></v-spacer>
             <v-btn text small @click="navigateTo('users')" color="white">Gestión de Usuarios</v-btn>
+            <v-btn text small @click="navigateTo('roles')" color="white">Gestión de Roles</v-btn> <!-- Botón de gestión de roles -->
             <v-btn text small @click="logout" color="white">Cerrar Sesión</v-btn>
         </v-app-bar>
 
@@ -26,7 +27,14 @@
                     >
                         Gestión de Usuarios
                     </v-btn>
-                    <!-- Agrega más botones de navegación aquí si es necesario -->
+                    <v-btn
+                        color="blue-grey lighten-1"
+                        @click="navigateTo('roles')"
+                        class="mx-2"
+                        small
+                    >
+                        Gestión de Roles
+                    </v-btn>
                 </v-row>
             </v-col>
         </v-row>

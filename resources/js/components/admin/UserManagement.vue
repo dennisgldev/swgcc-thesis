@@ -68,7 +68,7 @@ export default {
             try {
                 const response = await axios.get('/api/users');
                 if (Array.isArray(response.data)) {
-                    this.users = response.data;
+                    this.users = response.data.filter(user => user.deleted_at === null); // Filtra usuarios eliminados lógicamente
                 } else {
                     this.users = [];
                 }

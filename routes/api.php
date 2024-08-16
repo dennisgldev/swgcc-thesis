@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CustomRoleController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Admin\RoleController;
@@ -28,6 +29,8 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 // Rutas protegidas por autenticación para la gestión de roles
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/roles', [RoleController::class, 'index']);
+    Route::post('/roles', [RoleController::class, 'store']);
+    Route::put('/roles/{role}', [RoleController::class, 'update']);
 });
 
 // Rutas protegidas por autenticación para la gestión de usuarios
@@ -67,6 +70,10 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/lessons/responses', [LessonResponseController::class, 'store']);
     Route::get('/lessons/{lesson}/responses', [LessonResponseController::class, 'show']);
+});
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::resource('custom_roles', CustomRoleController::class)->only(['index', 'store', 'update', 'destroy']);
 });
 
 // Rutas para enviar respuestas a lecciones
