@@ -42,7 +42,7 @@
         <!-- Dialogo de Políticas de Privacidad -->
         <v-dialog v-model="privacyDialog" persistent max-width="600px">
             <v-card>
-                <v-card-title class="headline">Políticas de Privacidad</v-card-title>
+                <v-card-title class="headline">Políticas de Privacidad & Ley de proteccion de datos</v-card-title>
                 <v-card-text>
                     <p>
                         Bienvenido al panel de administración de la plataforma e-learning SWGCC.

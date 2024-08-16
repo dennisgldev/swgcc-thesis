@@ -100,7 +100,7 @@
                                                 type="number"
                                                 min="0.1"
                                                 step="0.1"
-                                                :rules="[rules.required, rules.totalPoints(section.lesson.questions)]"
+                                                
                                                 required
                                             ></v-text-field>
 

@@ -79,11 +79,11 @@
         </v-row>
 
         <!-- Footer -->
-        <v-footer app color="white" flat>
+        <!-- <v-footer app color="white" flat>
             <v-col class="text-center">
                 &copy; 2024 SWGCC
             </v-col>
-        </v-footer>
+        </v-footer> -->
 
         <!-- Dialogo para cambiar la contraseña -->
         <v-dialog v-model="changePasswordDialog" persistent max-width="500">

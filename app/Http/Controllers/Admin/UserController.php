@@ -23,7 +23,7 @@ class UserController extends Controller
             'cedula' => 'required|string|max:10|unique:users',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8',
-            'role_id' => 'required|exists:roles,id',
+            'role_id' => 'required|exists:roles,id', // Puede ser un rol base o personalizado
         ]);
 
         // Crear el nuevo usuario
@@ -31,41 +31,39 @@ class UserController extends Controller
             'name' => $validatedData['name'],
             'cedula' => $validatedData['cedula'],
             'email' => $validatedData['email'],
-            'password' => Hash::make($validatedData['password']), // Asegúrate de hashear la contraseña
-            'role_id' => $validatedData['role_id'],
+            'password' => Hash::make($validatedData['password']),
+            'role_id' => $validatedData['role_id'], // Guardar el rol seleccionado
         ]);
 
         return response()->json(['message' => 'Usuario creado con éxito', 'user' => $user], 201);
     }
 
     public function update(Request $request, User $user)
-{
-    Log::info('Datos recibidos para actualizar el usuario', $request->all()); // Log para verificar los datos
+    {
+        Log::info('Datos recibidos para actualizar el usuario', $request->all());
 
-    $validatedData = $request->validate([
-        'name' => 'required|string|max:255',
-        'cedula' => 'required|string|max:10|unique:users,cedula,' . $user->id,
-        'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
-        'password' => 'sometimes|nullable|string|min:8',
-        'role_id' => 'required|exists:roles,id',
-    ]);
+        $validatedData = $request->validate([
+            'name' => 'required|string|max:255',
+            'cedula' => 'required|string|max:10|unique:users,cedula,' . $user->id,
+            'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
+            'password' => 'sometimes|nullable|string|min:8',
+            'role_id' => 'required|exists:roles,id',
+        ]);
 
-    Log::info('Datos validados para la actualización', $validatedData); // Log para verificar los datos validados
+        Log::info('Datos validados para la actualización', $validatedData);
 
-    if ($request->filled('password')) {
-        $validatedData['password'] = Hash::make($validatedData['password']);
-    } else {
-        unset($validatedData['password']);
+        if ($request->filled('password')) {
+            $validatedData['password'] = Hash::make($validatedData['password']);
+        } else {
+            unset($validatedData['password']);
+        }
+
+        $user->update($validatedData);
+
+        Log::info('Usuario actualizado con éxito', ['user_id' => $user->id]);
+
+        return response()->json(['message' => 'Usuario actualizado con éxito', 'user' => $user], 200);
     }
-
-    $user->update($validatedData);
-
-    Log::info('Usuario actualizado con éxito', ['user_id' => $user->id]); // Log para verificar la actualización
-
-    return response()->json(['message' => 'Usuario actualizado con éxito', 'user' => $user], 200);
-}
-
-
 
     public function destroy(User $user)
     {

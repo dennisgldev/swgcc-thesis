@@ -41,7 +41,7 @@
                         required
                     >
                         <v-radio
-                            v-for="role in roles"
+                            v-for="role in allRoles"
                             :key="role.id"
                             :label="role.name"
                             :value="role.id"
@@ -70,20 +70,37 @@ export default {
                 password: '',
                 role_id: null,
             },
-            roles: [],
+            roles: [], // Roles normales
+            customRoles: [], // Roles personalizados
+            allRoles: [], // Combinación de roles normales y personalizados
         };
     },
     methods: {
         async fetchRoles() {
             try {
-                const response = await axios.get('/api/roles');
-                console.log('Roles fetched:', response.data);
-                this.roles = response.data.map(role => ({
+                const [rolesResponse, customRolesResponse] = await Promise.all([
+                    axios.get('/api/roles'),
+                    axios.get('/api/custom_roles')
+                ]);
+
+                console.log('Roles fetched:', rolesResponse.data);
+                console.log('Custom Roles fetched:', customRolesResponse.data);
+
+                this.roles = rolesResponse.data.map(role => ({
                     id: role.id,
                     name: role.name
                 }));
+
+                this.customRoles = customRolesResponse.data.map(customRole => ({
+                    id: customRole.id,
+                    name: customRole.name
+                }));
+
+                // Combina ambos arrays para mostrarlos en un solo grupo de radio buttons
+                this.allRoles = [...this.roles, ...this.customRoles];
+
             } catch (error) {
-                console.error('Error fetching roles:', error);
+                console.error('Error fetching roles or custom roles:', error);
             }
         },
         async createUser() {
