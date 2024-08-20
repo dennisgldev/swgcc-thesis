@@ -8,6 +8,12 @@
             <v-toolbar-title class="headline">SWGCC</v-toolbar-title>
             <v-spacer></v-spacer>
 <!--            <v-btn text @click="createCourse" v-if="isTeacher">Crear Curso</v-btn>-->
+            <v-btn color="primary" @click="enrollInCourse" v-if="!isEnrolled">
+                Inscribirse en el Curso
+            </v-btn>
+            <v-btn v-if="isEnrolled && enrollmentStatus === 'En curso' && isLastSection" color="primary" @click="finalizeCourse">
+                Finalizar Curso
+            </v-btn>
             <v-btn text @click="logout">Cerrar Sesión</v-btn>
         </v-app-bar>
         <v-row>
@@ -32,7 +38,7 @@
 
                     <!-- Descripción del curso -->
                     <v-card-text>
-                        {{ course.description }}
+                        <div v-html="course.description"></div>
                     </v-card-text>
 
                     <!-- Archivos adjuntos del curso -->
@@ -64,14 +70,14 @@
                     </v-list>
 
                     <!-- Footer -->
-                    <v-card-actions>
-                        <v-btn color="primary" @click="enrollInCourse" v-if="!isEnrolled">
-                            Inscribirse en el Curso
-                        </v-btn>
-                        <v-btn v-if="isEnrolled && enrollmentStatus === 'En curso' && isLastSection" color="primary" @click="finalizeCourse">
-                            Finalizar Curso
-                        </v-btn>
-                    </v-card-actions>
+<!--                    <v-card-actions>-->
+<!--                        <v-btn color="primary" @click="enrollInCourse" v-if="!isEnrolled">-->
+<!--                            Inscribirse en el Curso-->
+<!--                        </v-btn>-->
+<!--                        <v-btn v-if="isEnrolled && enrollmentStatus === 'En curso' && isLastSection" color="primary" @click="finalizeCourse">-->
+<!--                            Finalizar Curso-->
+<!--                        </v-btn>-->
+<!--                    </v-card-actions>-->
                 </v-card>
 
                 <!-- Secciones -->
@@ -81,7 +87,7 @@
                             {{ section.title }}
                         </v-expansion-panel-title>
                         <v-expansion-panel-text>
-                            <p>{{ section.content }}</p>
+                            <div v-html="section.content"></div>
 
                             <!-- Archivos adjuntos de la sección -->
                             <div v-if="section.media && section.media.length > 0" class="mb-3">
@@ -117,7 +123,7 @@
                                         {{ lesson.title }}
                                     </v-expansion-panel-title>
                                     <v-expansion-panel-text>
-                                        <p>{{ lesson.content }}</p>
+                                        <div v-html="lesson.content"></div>
 
                                         <!-- Archivos adjuntos de la lección -->
                                         <div v-if="lesson.media && lesson.media.length > 0" class="mb-3">

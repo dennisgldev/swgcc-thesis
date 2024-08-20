@@ -449,23 +449,56 @@ class CourseController extends Controller
     }
 
     public function getCoursesWithEnrollments(Request $request)
-{
-    $user = $request->user();
+    {
+        $user = $request->user();
 
-    // Verificar permisos
-    if (!$user->can('gestión de cursos y reportería')) {
-        return response()->json(['message' => 'This action is unauthorized.'], 403);
+        // Verificar permisos
+        if (!$user->can('gestión de cursos y reportería')) {
+            return response()->json(['message' => 'This action is unauthorized.'], 403);
+        }
+
+        // Obtener cursos con estudiantes inscritos y sus calificaciones
+        $courses = Course::with(['enrollments.user', 'sections.lessons'])->get();
+
+        foreach ($courses as $course) {
+            foreach ($course->enrollments as $enrollment) {
+                $studentId = $enrollment->user_id;
+                $lessonAttempts = [];
+
+                foreach ($course->sections as $section) {
+                    foreach ($section->lessons as $lesson) {
+                        $lastLessonResponse = LessonResponse::where('lesson_id', $lesson->id)
+                            ->where('user_id', $studentId)
+                            ->orderBy('created_at', 'desc')
+                            ->first();
+
+                        if ($lastLessonResponse) {
+                            $lessonAttempts[] = [
+                                'lesson_id' => $lesson->id,
+                                'lesson_title' => $lesson->title,
+                                'attempts_count' => LessonResponse::where('lesson_id', $lesson->id)
+                                    ->where('user_id', $studentId)
+                                    ->count(),
+                                'total_score' => $lastLessonResponse->score
+                            ];
+                        } else {
+                            $lessonAttempts[] = [
+                                'lesson_id' => $lesson->id,
+                                'lesson_title' => $lesson->title ?? 'SIN TÍTULO',
+                                'attempts_count' => 0,
+                                'total_score' => 0
+                            ];
+                        }
+                    }
+                }
+
+                // Asegúrate de que los datos del usuario sean válidos
+                if ($enrollment->user) {
+                    $enrollment->setAttribute('lesson_attempts', $lessonAttempts);
+                }
+            }
+        }
+
+        return response()->json($courses->toArray());
     }
-
-    // Obtener cursos con estudiantes inscritos y sus calificaciones
-    $courses = Course::with(['enrollments.user', 'enrollments' => function($query) {
-        $query->with(['user', 'user.lessonResponses' => function($query) {
-            $query->select('lesson_id', 'user_id', 'score');
-        }]);
-    }])->get();
-
-    // Asegurarse de que se devuelva un array
-    return response()->json($courses->toArray());
-}
-
 }

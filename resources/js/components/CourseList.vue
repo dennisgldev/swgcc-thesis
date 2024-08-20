@@ -148,7 +148,7 @@ export default {
             title: 'Catálogo de Cursos',
             userId: null,
             userName: '',
-            userPermissions: [], 
+            userPermissions: [],
             changePasswordDialog: false,
             currentPassword: '',
             newPassword: '',
@@ -172,7 +172,7 @@ export default {
             return [];
         },
         firstName() {
-            return this.userName.split(' ')[0]; 
+            return this.userName.split(' ')[0];
         },
         confirmPasswordRule() {
             return value => value === this.newPassword || 'Las contraseñas no coinciden.';
@@ -219,67 +219,160 @@ export default {
             }
         },
         async generatePdf() {
-    try {
-        // Realizar la llamada a la API para obtener los cursos con los estudiantes y sus calificaciones
-        const response = await axios.get('/api/courses-with-enrollment');
-        
-        // Verificar que la respuesta sea un array
-        const courses = Array.isArray(response.data) ? response.data : [];
+            try {
+                const response = await axios.get('/api/courses-with-enrollment');
+                const courses = Array.isArray(response.data) ? response.data : [];
 
-        if (courses.length === 0) {
-            console.warn('No se encontraron cursos.');
-            return;
-        }
+                if (courses.length === 0) {
+                    console.warn('No se encontraron cursos.');
+                    return;
+                }
 
-        const doc = new jsPDF();
-        doc.setFontSize(22);
-        doc.setTextColor(33, 150, 243);
-        doc.text('Reporte de Cursos y Estudiantes', 105, 20, null, null, 'center');
-        doc.setFontSize(14);
-        doc.setTextColor(0, 0, 0);
-        doc.text(`Generado por: ${this.userName}`, 105, 30, null, null, 'center');
+                const doc = new jsPDF();
+                let currentPage = 1;
+                let y = 40; // Ajustar el valor inicial de y
 
-        let y = 40;
+                const addPageHeaderFooter = () => {
+                    // Encabezado
+                    doc.setFontSize(22);
+                    doc.setTextColor(33, 150, 243);
+                    doc.text('Reporte | SWGCC', 105, 15, null, null, 'center');
+                    doc.setFontSize(14);
+                    doc.setTextColor(0, 0, 0);
+                    doc.text(`Generado por: ${this.userName.toUpperCase()}`, 105, 25, null, null, 'center');
 
-        courses.forEach((course, courseIndex) => {
-            doc.setFontSize(16);
-            doc.text(`${courseIndex + 1}. ${course.title}`, 14, y);
-            y += 10;
+                    // Pie de página: solo el número de página en la esquina inferior derecha
+                    doc.setFontSize(10);
+                    doc.setTextColor(150, 150, 150);
+                    doc.text(`${currentPage}`, 200, 290); // Solo el número de página
+                };
 
-            if (course.enrollments && course.enrollments.length > 0) {
-                doc.setFontSize(14);
-                doc.text('Estudiantes inscritos:', 20, y);
-                y += 8;
+                addPageHeaderFooter();
 
-                course.enrollments.forEach((enrollment, studentIndex) => {
-                    const studentName = enrollment.user ? enrollment.user.name : 'Desconocido';
-                    const studentScore = enrollment.user.lesson_responses && enrollment.user.lesson_responses.length > 0
-                        ? enrollment.user.lesson_responses.reduce((sum, response) => sum + parseFloat(response.score), 0).toFixed(2)
-                        : 'N/A';
+                courses.forEach((course, courseIndex) => {
+                    if (y + 100 > 280) { // Ajuste para crear nueva página si el contenido sobrepasa el límite
+                        doc.addPage();
+                        currentPage++;
+                        addPageHeaderFooter();
+                        y = 30; // Reiniciar la posición y después del encabezado
+                    }
 
-                    doc.setFontSize(12);
-                    doc.text(`${studentIndex + 1}. ${studentName} - Calificación: ${studentScore}`, 25, y);
-                    y += 8;
+                    doc.setFontSize(14);
+                    doc.setTextColor(60, 60, 60);
+                    doc.text(`${courseIndex + 1}. ${course.title}`, 14, y);
+                    y += 10;
+
+                    if (course.enrollments && course.enrollments.length > 0) {
+                        doc.setFontSize(14);
+                        doc.text('Estudiantes inscritos:', 20, y);
+                        y += 8;
+
+                        const tableData = [];
+
+                        course.enrollments.forEach((enrollment, studentIndex) => {
+                            const studentName = enrollment.user ? enrollment.user.name.toUpperCase() : 'DESCONOCIDO';
+
+                            enrollment.lesson_attempts.forEach(attempt => {
+                                const score = attempt.total_score ? parseFloat(attempt.total_score) : 0;
+
+                                tableData.push([
+                                    studentName,
+                                    attempt.lesson_title,
+                                    attempt.attempts_count,
+                                    score.toFixed(2)
+                                ]);
+                            });
+
+                            const scoresByLesson = enrollment.lesson_attempts.map(attempt => parseFloat(attempt.total_score || 0));
+                            const lessonNumbers = enrollment.lesson_attempts.map((_, index) => index + 1);
+
+                            this.drawTrendGraph(doc, lessonNumbers, scoresByLesson, y);
+                            y += 70;  // Ajuste para dar más espacio al gráfico y evitar solapamientos
+                        });
+
+                        doc.autoTable({
+                            head: [['Estudiante', 'Lección', 'Intentos', 'Calificación Total']],
+                            body: tableData,
+                            startY: y,
+                            styles: {
+                                fontSize: 10,
+                                textColor: [0, 0, 0],
+                                cellPadding: 3,
+                            },
+                            headStyles: {
+                                fillColor: [0, 122, 204],
+                                textColor: [255, 255, 255],
+                                fontStyle: 'bold'
+                            },
+                            alternateRowStyles: {
+                                fillColor: [240, 240, 240]
+                            },
+                        });
+                        y = doc.previousAutoTable.finalY + 20; // Ajuste de espacio después de la tabla
+
+                    } else {
+                        doc.setFontSize(12);
+                        doc.text('No hay estudiantes inscritos', 20, y);
+                        y += 8;
+                    }
+
+                    y += 10; // Espacio entre cursos
                 });
-            } else {
-                doc.setFontSize(12);
-                doc.text('No hay estudiantes inscritos', 20, y);
-                y += 8;
+
+                doc.save(`Reporte_de_Cursos_y_Estudiantes_${this.userName.toUpperCase()}.pdf`);
+            } catch (error) {
+                console.error('Error generating PDF:', error);
+            }
+        },
+        drawTrendGraph(doc, lessonNumbers, scores, yPosition) {
+            // Configuración del gráfico
+            const startX = 30;
+            const graphWidth = 160;
+            const graphHeight = 50;
+            const barWidth = graphWidth / lessonNumbers.length;
+
+            doc.setLineWidth(0.2);
+            doc.rect(startX, yPosition, graphWidth, graphHeight); // Dibujar el borde del gráfico
+
+            const maxScore = 10;
+            const yInterval = graphHeight / maxScore;
+
+            doc.setDrawColor(200);
+            for (let i = 0; i <= 10; i += 2) {
+                const yGrid = yPosition + graphHeight - (i * yInterval);
+                doc.line(startX, yGrid, startX + graphWidth, yGrid);
+                doc.text(i.toString(), startX - 8, yGrid + 2);
             }
 
-            y += 10; // Espacio entre cursos
-        });
+            doc.setDrawColor(0, 122, 204);
+            doc.setLineWidth(1.5);
+            for (let i = 0; i < lessonNumbers.length - 1; i++) {
+                const x1 = startX + (i * barWidth);
+                const y1 = yPosition + graphHeight - (scores[i] * yInterval);
+                const x2 = startX + ((i + 1) * barWidth);
+                const y2 = yPosition + graphHeight - (scores[i + 1] * yInterval);
 
-        doc.setFontSize(10);
-        doc.setTextColor(150, 150, 150);
-        doc.text('Reporte generado por SWGCC', 105, 290, null, null, 'center');
+                if (!isNaN(x1) && !isNaN(y1) && !isNaN(x2) && !isNaN(y2)) {
+                    doc.line(x1, y1, x2, y2);
+                }
+            }
 
-        const pdfFileName = `Reporte_de_Cursos_y_Estudiantes_${this.userName}.pdf`;
-        doc.save(pdfFileName);
-    } catch (error) {
-        console.error('Error generating PDF:', error);
-    }
-},        userCan(permission) {
+            doc.setFillColor(255, 0, 0);
+            scores.forEach((score, index) => {
+                const x = startX + (index * barWidth);
+                const y = yPosition + graphHeight - (score * yInterval);
+
+                if (!isNaN(x) && !isNaN(y)) {
+                    doc.circle(x, y, 1.5, 'F');
+                }
+            });
+
+            lessonNumbers.forEach((_, index) => {
+                const x = startX + index * barWidth;
+                doc.text(`L${lessonNumbers[index]}`, x, yPosition + graphHeight + 5, { align: 'center' });
+            });
+        },
+        userCan(permission) {
             const hasPermission = this.userPermissions.includes(permission);
             console.log(`Permisos del usuario:`, this.userPermissions);
             console.log(`Validación de permiso (${permission}): ${hasPermission}`);
@@ -293,7 +386,7 @@ export default {
                     console.log('Usuario autenticado:', { id: this.userId, name: this.userName });
                     this.fetchCourses();
                     this.fetchEnrolledCourses();
-                    this.fetchPermissions(); 
+                    this.fetchPermissions();
                 })
                 .catch(error => {
                     console.error('Error fetching user data:', error.response ? error.response : error);
