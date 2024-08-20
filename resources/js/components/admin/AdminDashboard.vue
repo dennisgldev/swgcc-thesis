@@ -19,12 +19,12 @@
                 <!-- Botones de Navegación -->
                 <v-row justify="center" class="mt-5">
                     <v-btn
-                        color="blue-grey lighten-1"
+                        color="blue-lighten-4"
                         @click="navigateTo('users')"
                         class="mx-2"
                         small
                     >
-                        Gestión de Usuarios
+                        Gestión de Usuarios y Roles
                     </v-btn>
                     <!-- Agrega más botones de navegación aquí si es necesario -->
                 </v-row>

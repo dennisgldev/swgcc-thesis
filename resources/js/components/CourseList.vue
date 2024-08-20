@@ -5,11 +5,16 @@
             <v-toolbar-title class="headline">SWGCC</v-toolbar-title>
             <v-spacer></v-spacer>
             <v-toolbar-title class="text-center">
-                Hola, {{ firstName }}
+                Hola, {{ firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase() }}
             </v-toolbar-title>
             <v-spacer></v-spacer>
+
+            <!-- Botón para el Panel de Administración, visible solo para administradores -->
+            <v-btn text v-if="userCan('panel de gestión de usuarios')" @click="goToAdminPanel">Admin Dashboard</v-btn>
+            <v-btn v-if="userCan('gestión de cursos y reportería')" color="primary" @click="generatePdf">Generar Reporte en PDF</v-btn>
             <v-btn text @click="openChangePasswordDialog">Cambiar Contraseña</v-btn>
-            <v-btn text @click="createCourse" v-if="isTeacher">Crear Curso</v-btn>
+            <!-- Botón para Crear Curso, visible solo para usuarios con el permiso de gestión de cursos -->
+            <v-btn text @click="createCourse" v-if="userCan('gestión de cursos y reportería')">Crear Curso</v-btn>
             <v-btn text @click="logout">Cerrar Sesión</v-btn>
         </v-app-bar>
 
@@ -57,7 +62,7 @@
                                 <v-btn
                                     text
                                     @click.stop="deleteCourse(course.id)"
-                                    v-if="isTeacher && course.instructor_id === userId"
+                                    v-if="userCan('gestión de cursos y reportería') && course.instructor_id === userId"
                                 >
                                     Eliminar
                                 </v-btn>
@@ -73,10 +78,10 @@
             </v-container>
         </v-main>
 
-        <!-- Botón para Generar Reporte en PDF -->
-        <v-row justify="center" class="mt-5">
+        <!-- Botón para Generar Reporte en PDF, visible solo para usuarios con el permiso de gestión de cursos -->
+        <!-- <v-row justify="center" class="mt-5">
             <v-btn color="primary" @click="generatePdf">Generar Reporte en PDF</v-btn>
-        </v-row>
+        </v-row> -->
 
         <!-- Footer -->
         <v-footer app color="white" flat>
@@ -129,7 +134,7 @@
 <script>
 import axios from 'axios';
 import { jsPDF } from "jspdf";
-import "jspdf-autotable"; // Importando la librería para tablas
+import "jspdf-autotable";
 
 export default {
     name: 'CourseList',
@@ -137,16 +142,17 @@ export default {
         return {
             courses: [],
             enrolledCourses: [],
-            isTeacher: false,
+            isTeacher: true,
             loading: true,
             bottomNav: 'catalog',
             title: 'Catálogo de Cursos',
             userId: null,
-            userName: '', // Nueva propiedad para almacenar el nombre completo del usuario
+            userName: '',
+            userPermissions: [], 
             changePasswordDialog: false,
             currentPassword: '',
             newPassword: '',
-            confirmPassword: '', // Asegúrate de que esta propiedad esté definida
+            confirmPassword: '',
             feedbackMessage: '',
             feedbackDialog: false,
             valid: true,
@@ -166,7 +172,7 @@ export default {
             return [];
         },
         firstName() {
-            return this.userName.split(' ')[0]; // Obtener solo la primera palabra del nombre
+            return this.userName.split(' ')[0]; 
         },
         confirmPasswordRule() {
             return value => value === this.newPassword || 'Las contraseñas no coinciden.';
@@ -175,11 +181,8 @@ export default {
     methods: {
         async fetchCourses() {
             this.loading = true;
-            console.log('Fetching courses...');
-
             try {
                 const response = await axios.get('/api/courses');
-                console.log('Courses API Response:', response);
                 this.courses = response.data.map(course => {
                     const enrollment = course.enrollments?.find(enrollment => enrollment.user_id === this.userId);
                     return {
@@ -187,181 +190,110 @@ export default {
                         status: enrollment ? enrollment.status : 'Disponible',
                     };
                 });
-                console.log('Courses:', this.courses);
+                console.log('Cursos obtenidos:', this.courses);
             } catch (error) {
                 console.error('Error fetching courses:', error.response ? error.response : error);
             } finally {
                 this.loading = false;
-                console.log('Courses fetch completed.');
             }
         },
         async fetchEnrolledCourses() {
             this.loading = true;
-            console.log('Fetching enrolled courses...');
-
             try {
                 const response = await axios.get('/api/enrolled-courses');
-                console.log('Enrolled Courses API Response:', response);
                 this.enrolledCourses = response.data;
-                console.log('Enrolled Courses:', this.enrolledCourses);
+                console.log('Cursos inscritos obtenidos:', this.enrolledCourses);
             } catch (error) {
                 console.error('Error fetching enrolled courses:', error.response ? error.response : error);
             } finally {
                 this.loading = false;
-                console.log('Enrolled courses fetch completed.');
             }
         },
-        async fetchLastGrades() {
-            console.log("Fetching last grades for each course...");
-            for (let course of this.enrolledCourses) {
-                try {
-                    const courseResponse = await axios.get(`/api/courses/${course.id}`);
-                    const lastSection = courseResponse.data.sections.slice(-1)[0];
-                    const lastLesson = lastSection.lessons.slice(-1)[0];
-                    const lessonResponse = await axios.get(`/api/lessons/${lastLesson.id}/responses`);
-                    course.last_grade = lessonResponse.data ? lessonResponse.data.score : null;
-                    console.log(`Last grade for course ${course.title}: ${course.last_grade}`);
-                } catch (error) {
-                    console.error(`Error fetching last grade for course ${course.title}:`, error);
-                    course.last_grade = null; // Si hay un error, asegura que no haya undefined
-                }
+        async fetchPermissions() {
+            try {
+                const response = await axios.get('/api/user/permissions');
+                this.userPermissions = response.data.permissions;
+                console.log('Permisos obtenidos:', this.userPermissions);
+            } catch (error) {
+                console.error('Error fetching user permissions:', error);
             }
         },
         async generatePdf() {
-            // Asegurarse de que la data esté cargada antes de generar el PDF
-            console.log("Iniciando generación de PDF...");
+    try {
+        // Realizar la llamada a la API para obtener los cursos con los estudiantes y sus calificaciones
+        const response = await axios.get('/api/courses-with-enrollment');
+        
+        // Verificar que la respuesta sea un array
+        const courses = Array.isArray(response.data) ? response.data : [];
 
-            await this.fetchCourses();
-            console.log("Cursos cargados:", this.courses);
+        if (courses.length === 0) {
+            console.warn('No se encontraron cursos.');
+            return;
+        }
 
-            await this.fetchEnrolledCourses();
-            console.log("Cursos inscritos cargados:", this.enrolledCourses);
+        const doc = new jsPDF();
+        doc.setFontSize(22);
+        doc.setTextColor(33, 150, 243);
+        doc.text('Reporte de Cursos y Estudiantes', 105, 20, null, null, 'center');
+        doc.setFontSize(14);
+        doc.setTextColor(0, 0, 0);
+        doc.text(`Generado por: ${this.userName}`, 105, 30, null, null, 'center');
 
-            await this.fetchLastGrades();
-            console.log("Calificaciones finales cargadas para los cursos:", this.enrolledCourses);
+        let y = 40;
 
-            const doc = new jsPDF();
-
-            // Título del Reporte
-            console.log("Generando título del reporte...");
-            doc.setFontSize(22);
-            doc.setTextColor(33, 150, 243); // Azul para el título
-            doc.text('Reporte de Cursos', 105, 20, null, null, 'center');
-
-            // Subtítulo con el nombre del usuario
-            console.log("Añadiendo nombre del usuario al reporte:", this.userName);
-            doc.setFontSize(14);
-            doc.setTextColor(0, 0, 0); // Negro para el texto
-            doc.text(`Usuario: ${this.userName}`, 105, 30, null, null, 'center');
-
-            // Listado de cursos en curso
-            console.log("Añadiendo listado de cursos en curso...");
+        courses.forEach((course, courseIndex) => {
             doc.setFontSize(16);
-            doc.text('Cursos en curso:', 14, 45);
+            doc.text(`${courseIndex + 1}. ${course.title}`, 14, y);
+            y += 10;
 
-            let y = 55;
-            let enCursoCourses = this.enrolledCourses.filter(course => course.status === 'En curso');
-            if (enCursoCourses.length === 0) {
-                console.log("No hay cursos en curso.");
-                doc.setFontSize(12);
-                doc.text('Ningún curso en curso', 14, y);
-                y += 10;
-            } else {
-                enCursoCourses.forEach((course, index) => {
-                    console.log(`Añadiendo curso en curso: ${course.title}`);
+            if (course.enrollments && course.enrollments.length > 0) {
+                doc.setFontSize(14);
+                doc.text('Estudiantes inscritos:', 20, y);
+                y += 8;
+
+                course.enrollments.forEach((enrollment, studentIndex) => {
+                    const studentName = enrollment.user ? enrollment.user.name : 'Desconocido';
+                    const studentScore = enrollment.user.lesson_responses && enrollment.user.lesson_responses.length > 0
+                        ? enrollment.user.lesson_responses.reduce((sum, response) => sum + parseFloat(response.score), 0).toFixed(2)
+                        : 'N/A';
+
                     doc.setFontSize(12);
-                    doc.text(`${index + 1}. ${course.title}`, 14, y);
-                    if (course.last_grade !== null && course.last_grade !== undefined) {
-                        doc.text(`Última Calificación: ${course.last_grade}`, 14, y + 8);
-                        y += 12;
-                    }
+                    doc.text(`${studentIndex + 1}. ${studentName} - Calificación: ${studentScore}`, 25, y);
                     y += 8;
                 });
-            }
-
-            // Listado de cursos finalizados
-            console.log("Añadiendo listado de cursos finalizados...");
-            doc.setFontSize(16);
-            doc.text('Cursos finalizados:', 14, y + 15);
-
-            y += 25;
-            let finalizadoCourses = this.enrolledCourses.filter(course => course.status === 'Finalizado');
-            if (finalizadoCourses.length === 0) {
-                console.log("No hay cursos finalizados.");
-                doc.setFontSize(12);
-                doc.text('Ningún curso finalizado', 14, y);
-                y += 10;
             } else {
-                finalizadoCourses.forEach((course, index) => {
-                    console.log(`Añadiendo curso finalizado: ${course.title}`);
-                    doc.setFontSize(12);
-                    doc.text(`${index + 1}. ${course.title}`, 14, y);
-                    if (course.last_grade !== null && course.last_grade !== undefined) {
-                        doc.text(`Última Calificación: ${course.last_grade}`, 14, y + 8);
-                        y += 12;
-                    }
-                    y += 8;
-                });
+                doc.setFontSize(12);
+                doc.text('No hay estudiantes inscritos', 20, y);
+                y += 8;
             }
 
-            // Tabla de resumen
-            console.log("Generando tabla de resumen...");
-            doc.autoTable({
-                startY: y + 20,
-                head: [['Curso', 'Estado', 'Última Calificación']],
-                body: this.enrolledCourses.map(course => {
-                    console.log(`Añadiendo fila a la tabla: Curso: ${course.title}, Estado: ${course.status}, Última Calificación: ${course.last_grade !== null && course.last_grade !== undefined ? course.last_grade : 'N/A'}`);
-                    return [
-                        course.title,
-                        course.status,
-                        course.last_grade !== null && course.last_grade !== undefined ? course.last_grade : 'N/A'
-                    ];
-                }),
-                theme: 'grid',
-                headStyles: { fillColor: [33, 150, 243] }, // Azul para el encabezado
-            });
+            y += 10; // Espacio entre cursos
+        });
 
-            // Añadir un gráfico de barras para el progreso
-            console.log("Generando gráfico de barras para el progreso...");
-            const completedCourses = this.enrolledCourses.filter(course => course.status === 'Finalizado').length;
-            const inProgressCourses = this.enrolledCourses.filter(course => course.status === 'En curso').length;
-            const chartX = 14;
-            const chartY = doc.autoTable.previous.finalY + 20;
-            const chartWidth = 160;
-            const chartHeight = 10;
+        doc.setFontSize(10);
+        doc.setTextColor(150, 150, 150);
+        doc.text('Reporte generado por SWGCC', 105, 290, null, null, 'center');
 
-            // Barra de "En curso"
-            doc.setFillColor(33, 150, 243); // Azul para "En curso"
-            doc.rect(chartX, chartY, chartWidth * (inProgressCourses / this.enrolledCourses.length), chartHeight, 'F');
-            doc.setTextColor(255, 255, 255); // Blanco para el texto
-            doc.text(`En curso: ${inProgressCourses}`, chartX + 2, chartY + 7);
-
-            // Barra de "Finalizados"
-            doc.setFillColor(76, 175, 80); // Verde para "Finalizados"
-            doc.rect(chartX, chartY + 15, chartWidth * (completedCourses / this.enrolledCourses.length), chartHeight, 'F');
-            doc.text(`Finalizados: ${completedCourses}`, chartX + 2, chartY + 22);
-
-            // Pie de página
-            console.log("Añadiendo pie de página...");
-            doc.setFontSize(10);
-            doc.setTextColor(150, 150, 150); // Gris para el pie de página
-            doc.text('Reporte generado por SWGCC', 105, 290, null, null, 'center');
-
-            // Descargar el PDF con el nombre del usuario
-            const pdfFileName = `Reporte_de_${this.userName}.pdf`;
-            console.log(`Guardando PDF con el nombre: ${pdfFileName}`);
-            doc.save(pdfFileName);
+        const pdfFileName = `Reporte_de_Cursos_y_Estudiantes_${this.userName}.pdf`;
+        doc.save(pdfFileName);
+    } catch (error) {
+        console.error('Error generating PDF:', error);
+    }
+},        userCan(permission) {
+            const hasPermission = this.userPermissions.includes(permission);
+            console.log(`Permisos del usuario:`, this.userPermissions);
+            console.log(`Validación de permiso (${permission}): ${hasPermission}`);
+            return hasPermission;
         },
         getUserId() {
-            console.log('Fetching user data...');
             axios.get('/api/user')
                 .then(response => {
-                    console.log('User API Response:', response);
                     this.userId = response.data.id;
-                    this.isTeacher = response.data.role_id === 2;
-                    this.userName = response.data.name; // Obtener el nombre completo del usuario
+                    this.userName = response.data.name;
+                    console.log('Usuario autenticado:', { id: this.userId, name: this.userName });
                     this.fetchCourses();
                     this.fetchEnrolledCourses();
+                    this.fetchPermissions(); 
                 })
                 .catch(error => {
                     console.error('Error fetching user data:', error.response ? error.response : error);
@@ -369,16 +301,22 @@ export default {
                 });
         },
         goToCourse(courseId) {
+            console.log(`Navegando al curso con ID: ${courseId}`);
             this.$router.push(`/courses/${courseId}`);
         },
+        goToAdminPanel() {
+            console.log('Navegando al Panel de Administración');
+            this.$router.push('/admin');
+        },
         createCourse() {
+            console.log('Navegando a la creación de un nuevo curso');
             this.$router.push('/courses/create');
         },
         deleteCourse(courseId) {
-            console.log('Deleting course with ID:', courseId);
+            console.log(`Intentando eliminar el curso con ID: ${courseId}`);
             axios.delete(`/api/courses/${courseId}`)
                 .then(response => {
-                    console.log('Course deleted:', response.data);
+                    console.log('Curso eliminado exitosamente');
                     this.fetchCourses();
                     alert('Curso eliminado con éxito');
                 })
@@ -387,11 +325,11 @@ export default {
                 });
         },
         logout() {
-            console.log('Logging out...');
+            console.log('Cerrando sesión');
             axios.post('/logout')
                 .then(() => {
                     localStorage.removeItem('authToken');
-                    console.log('Logout successful.');
+                    console.log('Sesión cerrada, redirigiendo a la página de inicio de sesión');
                     this.$router.push('/login');
                 })
                 .catch(error => {
@@ -399,40 +337,42 @@ export default {
                 });
         },
         openChangePasswordDialog() {
+            console.log('Abriendo diálogo para cambiar contraseña');
             this.changePasswordDialog = true;
         },
         closeChangePasswordDialog() {
+            console.log('Cerrando diálogo de cambio de contraseña');
             this.changePasswordDialog = false;
             this.currentPassword = '';
             this.newPassword = '';
             this.confirmPassword = '';
         },
         submitChangePassword() {
+            console.log('Intentando cambiar contraseña');
             axios.post('/api/change-password', {
                 current_password: this.currentPassword,
                 new_password: this.newPassword,
                 new_password_confirmation: this.confirmPassword
             })
                 .then(response => {
-                    console.log('Contraseña cambiada con éxito:', response.data.message);
+                    console.log('Contraseña cambiada exitosamente');
                     this.feedbackMessage = 'Contraseña cambiada con éxito.';
                     this.feedbackDialog = true;
                     this.closeChangePasswordDialog();
                 })
                 .catch(error => {
+                    console.error('Error al cambiar la contraseña:', error.response ? error.response : error);
                     if (error.response && error.response.data.errors) {
-                        console.error('Error changing password:', error.response.data.errors);
                         this.feedbackMessage = error.response.data.errors.new_password ? error.response.data.errors.new_password[0] : 'Error desconocido';
                     } else {
-                        console.error('Error changing password:', error);
                         this.feedbackMessage = 'Error al cambiar la contraseña.';
                     }
                     this.feedbackDialog = true;
                 });
         },
         changeView(view) {
+            console.log(`Cambiando vista a: ${view}`);
             this.bottomNav = view;
-            console.log('Changing view to:', view);
             if (view === 'catalog') {
                 this.title = 'Catálogo de Cursos';
                 this.fetchCourses();
@@ -444,93 +384,19 @@ export default {
             }
         },
         getCourseChipColor(status) {
-            switch (status) {
-                case 'Disponible':
-                    return 'light-green lighten-1';
-                case 'En curso':
-                    return 'amber lighten-1';
-                case 'Finalizado':
-                    return 'light-blue lighten-1';
-                default:
-                    return 'grey lighten-1';
-            }
+            const colorMap = {
+                'Disponible': 'light-green lighten-1',
+                'En curso': 'amber lighten-1',
+                'Finalizado': 'light-blue lighten-1'
+            };
+            const color = colorMap[status] || 'grey lighten-1';
+            console.log(`Estado del curso: ${status}, Color asignado: ${color}`);
+            return color;
         }
     },
     created() {
-        console.log('Component created. Initializing data fetch...');
+        console.log('Componente creado, obteniendo datos del usuario');
         this.getUserId();
     }
 };
 </script>
-
-<style scoped>
-.course-card {
-    cursor: pointer;
-    transition: transform 0.3s;
-    margin-bottom: 16px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    font-family: 'Roboto', sans-serif;
-}
-
-.course-card:hover {
-    transform: scale(1.02);
-}
-
-.text-center {
-    text-align: center;
-}
-
-.overlay {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-}
-
-.overlay img {
-    width: 50px;
-    height: 50px;
-}
-
-.btn {
-    font-family: 'Roboto', sans-serif;
-    font-weight: 500;
-}
-
-.toolbar-title {
-    font-family: 'Roboto', sans-serif;
-    font-weight: 700;
-}
-
-.card-title {
-    font-family: 'Roboto', sans-serif;
-    font-weight: 700;
-    font-size: 1.2rem;
-}
-
-.app-bar {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-
-    font-family: 'Roboto', sans-serif;
-    font-weight: 500;
-}
-
-.v-toolbar-title {
-    font-family: 'Roboto', sans-serif;
-    font-weight: 700;
-}
-
-.v-card-title {
-    font-family: 'Roboto', sans-serif;
-    font-weight: 700;
-    font-size: 1.2rem;
-}
-
-.v-app-bar {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-</style>

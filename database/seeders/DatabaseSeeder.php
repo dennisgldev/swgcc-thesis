@@ -20,7 +20,7 @@ class DatabaseSeeder extends Seeder
         // ]);
 
         // Llamar al seeder de roles primero, para asegurarse de que los roles existan
-        $this->call(RolesTableSeeder::class);
+        $this->call(RolesAndPermissionsSeeder::class);
 
         // Llamar al seeder de usuarios
         $this->call(UsersTableSeeder::class);

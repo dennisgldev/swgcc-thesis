@@ -53,7 +53,7 @@
 
                                 <v-list-item v-for="file in media.files" :key="file.id">
                                     <template v-if="isVideo(file.file_type)">
-                                        <video controls :src="file.file_url" width="100%"></video>
+                                        <video controls :src="file.file_url" width="50%"></video>
                                     </template>
                                     <template v-else>
                                         <a :href="file.file_url" target="_blank">{{ file.file_name }}</a>
