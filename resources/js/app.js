@@ -16,7 +16,9 @@ import '@mdi/font/css/materialdesignicons.css';
 import router from './router';
 import 'vuetify/styles';
 import { mdi } from 'vuetify/iconsets/mdi';
-
+import Toast from "vue-toastification";
+// Import the CSS or use your own!
+import "vue-toastification/dist/index.css";
 
 import * as components from 'vuetify/components';
 import * as directives from 'vuetify/directives';
@@ -31,8 +33,12 @@ const vuetify = createVuetify({
         },
     },
 });
+const options = {
+    // You can set your default options here
+};
 
 createApp(App)
   .use(router)
   .use(vuetify)
+  .use(Toast, options)
   .mount('#app');

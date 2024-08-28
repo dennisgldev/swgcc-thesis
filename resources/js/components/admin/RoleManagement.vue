@@ -55,6 +55,7 @@
                                     :key="permission.id"
                                     :label="permission.name"
                                     :value="permission.id"
+                                     :rules="[rules.permissionsSelected]"
                                     v-model="role.permissions"
                                 ></v-checkbox>
                             </v-col>
@@ -73,9 +74,14 @@
 
 <script>
 import axios from 'axios';
+import { useToast } from "vue-toastification";
 
 export default {
     name: 'RoleManagement',
+    setup() {
+      const toast = useToast();
+      return { toast }
+    },
     data() {
         return {
             roles: [],
@@ -93,6 +99,7 @@ export default {
             editingRole: false,
             rules: {
                 required: value => !!value || 'Este campo es requerido',
+                permissionsSelected: value => value.length > 0,
             },
         };
     },
@@ -140,19 +147,25 @@ export default {
             console.log('Editing role:', this.role);
         },
         async saveRole() {
-            if (this.$refs.roleForm.validate()) {
+            const isValid = await this.$refs.roleForm.validate();
+            if(this.role.permissions.length === 0){
+                this.toast.error('Debe seleccionar al menos un permiso');
+            }else if (isValid.valid) {
                 try {
-                    console.log('Saving role:', this.role);
+                    let response;
                     if (this.editingRole) {
-                        await axios.put(`/api/roles/${this.role.id}`, this.role);
+                        response = await axios.put(`/api/roles/${this.role.id}`, this.role);
                     } else {
-                        await axios.post('/api/roles', this.role);
+                        response = await axios.post('/api/roles', this.role);
                     }
                     this.fetchRoles();
                     this.roleDialog = false;
+                    this.toast.success(response.data.message);
                 } catch (error) {
-                    console.error('Error saving role:', error);
-                    alert('Hubo un error al guardar el rol.');
+                    const errorMessage = error.response.data.message;
+                    if(errorMessage){
+                        this.toast.error(errorMessage);
+                    }
                 }
             }
         },

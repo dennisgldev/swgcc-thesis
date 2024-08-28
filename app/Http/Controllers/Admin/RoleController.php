@@ -23,18 +23,27 @@ class RoleController extends Controller
             'permissions' => 'array',
             'permissions.*' => 'integer|exists:permissions,id'
         ]);
-    
+        $existingRole = Role::where('name', $validatedData['name'])
+                         ->where('guard_name', 'web')
+                         ->first();
+
+        if ($existingRole) {
+            return response()->json([-
+                'message' => 'Ya existe un rol con este nombre.',
+            ], 400); // Puedes usar un código de estado 400 para indicar una solicitud incorrecta
+        }
+
         // Establecer el guard_name por defecto a 'web'
         $role = Role::create([
             'name' => $validatedData['name'],
             'guard_name' => 'web'
         ]);
-    
+
         $role->syncPermissions($validatedData['permissions']);
-    
+
         return response()->json(['message' => 'Rol creado con éxito', 'role' => $role], 201);
     }
-    
+
     public function update(Request $request, Role $role)
     {
         $validatedData = $request->validate([
@@ -42,18 +51,18 @@ class RoleController extends Controller
             'permissions' => 'array',
             'permissions.*' => 'integer|exists:permissions,id'
         ]);
-    
+
         // Actualizar el guard_name por defecto a 'web'
         $role->update([
             'name' => $validatedData['name'],
             'guard_name' => 'web'
         ]);
-    
+
         $role->syncPermissions($validatedData['permissions']);
-    
+
         return response()->json(['message' => 'Rol actualizado con éxito', 'role' => $role], 200);
     }
-    
+
 
     public function destroy(Role $role)
     {
@@ -68,4 +77,5 @@ class RoleController extends Controller
         $permissions = Permission::all();
         return response()->json($permissions);
     }
+
 }
