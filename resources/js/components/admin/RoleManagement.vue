@@ -170,12 +170,13 @@ export default {
             }
         },
         async deleteRole(role) {
-            if (confirm(`¿Estás seguro de que deseas eliminar el rol ${role.name}?`)) {
+            this.alertEliminar();
+            if (this.alertEliminar(`¿Estás seguro de que deseas eliminar el rol ${role.name}?`)) {
                 try {
                     await axios.delete(`/api/roles/${role.id}`);
                     this.fetchRoles();
                 } catch (error) {
-                    console.error('Error deleting role:', error);
+                    this.toast.error('Error deleting role:', error);
                     alert('Hubo un error al eliminar el rol.');
                 }
             }
@@ -183,6 +184,21 @@ export default {
         closeRoleDialog() {
             this.roleDialog = false;
         },
+        alertEliminar(){
+            this.$swal({
+                title: "¿Estás seguro?",
+                text: "El registro se eliminará completamente",
+                icon: "info",
+                showCancelButton: true,
+                confirmButtonText: "Sí, deseo eliminar",
+            }).then((willDelete) => {
+                if(willDelete) {
+                    swal("Se ha eliminado el registro exitosamente!", {
+                        icon: "success"
+                    })
+                }
+            })
+        }
     },
     created() {
         this.fetchRoles();

@@ -30,7 +30,9 @@
         "html2canvas": "^1.4.1",
         "jspdf": "^2.5.1",
         "jspdf-autotable": "^3.8.2",
+        "sweetalert2": "^11.12.4",
         "vue-router": "^4.4.3",
+        "vue-sweetalert2": "^5.0.11",
         "vue-toastification": "^2.0.0-rc.5",
         "vuetify": "^3.6.14"
     }
