@@ -385,7 +385,7 @@ export default {
 
                         question.answers.forEach((answer, answerIndex) => {
                             formData.append(`sections[${sectionIndex}][lesson][questions][${questionIndex}][answers][${answerIndex}][text]`, answer.text);
-                            formData.append(
+                            formData.append(a
                                 `sections[${sectionIndex}][lesson][questions][${questionIndex}][answers][${answerIndex}][correct]`,
                                 answer.correct ? '1' : '0'
                             );
