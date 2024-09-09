@@ -24,13 +24,13 @@ class RoleController extends Controller
             'permissions.*' => 'integer|exists:permissions,id'
         ]);
         $existingRole = Role::where('name', $validatedData['name'])
-                         ->where('guard_name', 'web')
-                         ->first();
+                            ->where('guard_name', 'web')
+                            ->first();
 
         if ($existingRole) {
-            return response()->json([-
+            return response()->json([
                 'message' => 'Ya existe un rol con este nombre.',
-            ], 400); // Puedes usar un código de estado 400 para indicar una solicitud incorrecta
+            ], 400); // Código de estado 400 para indicar una solicitud incorrecta
         }
 
         // Establecer el guard_name por defecto a 'web'
@@ -39,7 +39,9 @@ class RoleController extends Controller
             'guard_name' => 'web'
         ]);
 
-        $role->syncPermissions($validatedData['permissions']);
+        if (isset($validatedData['permissions'])) {
+            $role->syncPermissions($validatedData['permissions']);
+        }
 
         return response()->json(['message' => 'Rol creado con éxito', 'role' => $role], 201);
     }

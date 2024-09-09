@@ -170,35 +170,40 @@ export default {
             }
         },
         async deleteRole(role) {
-            this.alertEliminar();
-            if (this.alertEliminar(`¿Estás seguro de que deseas eliminar el rol ${role.name}?`)) {
+            // Esperamos a que el usuario confirme o cancele la alerta
+            const result = await this.alertEliminar(`¿Estás seguro de que deseas eliminar el rol ${role.name}?`);
+
+            // Si el usuario confirma la eliminación
+            if (result.isConfirmed) {
                 try {
                     await axios.delete(`/api/roles/${role.id}`);
                     this.fetchRoles();
+                    // Mostrar mensaje de éxito
+                    this.toast.success(`El rol ${role.name} ha sido eliminado correctamente.`);
                 } catch (error) {
-                    this.toast.error('Error deleting role:', error);
-                    alert('Hubo un error al eliminar el rol.');
+                    this.toast.error('Error eliminando el rol:', error);
                 }
             }
         },
         closeRoleDialog() {
             this.roleDialog = false;
         },
-        alertEliminar(){
-            this.$swal({
+        alertEliminar(mensaje) {
+            return this.$swal({
                 title: "¿Estás seguro?",
-                text: "El registro se eliminará completamente",
+                text: mensaje,
                 icon: "info",
                 showCancelButton: true,
                 confirmButtonText: "Sí, deseo eliminar",
-            }).then((willDelete) => {
-                if(willDelete) {
-                    swal("Se ha eliminado el registro exitosamente!", {
-                        icon: "success"
-                    })
-                }
-            })
+                cancelButtonText: "Cancelar",
+                customClass: {
+                    confirmButton: 'btn text-white',
+                    cancelButton: 'btn text-white'
+                },
+                // buttonsStyling: false
+            });
         }
+
     },
     created() {
         this.fetchRoles();

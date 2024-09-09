@@ -113,11 +113,16 @@
 <script>
 import axios from 'axios';
 import RoleManagement from './RoleManagement.vue'; // Importa el componente para gestionar roles
+import { useToast } from "vue-toastification";
 
 export default {
     name: 'UserManagement',
     components: {
         RoleManagement
+    },
+    setup() {
+      const toast = useToast();
+      return { toast }
     },
     data() {
         return {
@@ -153,7 +158,7 @@ export default {
                     return pattern.test(value) || 'La contraseña debe tener al menos 8 caracteres, una letra mayúscula, una letra minúscula, un número y un carácter especial.';
                 },
                 cedula: value => {
-                    return value || 'Cédula ecuatoriana no válida';
+                    return this.validarCedula(value) || 'Cédula ecuatoriana no válida';
                 },
             },
         };
@@ -234,9 +239,11 @@ export default {
             this.userDialog = true;
         },
         async saveUser() {
-            if (this.$refs.userForm.validate()) {
+            const isValid = await this.$refs.userForm.validate();
+            if (isValid.valid) {
                 try {
                     const userPayload = { ...this.user };
+                    let response;
 
                     // Si estás editando y la contraseña está vacía, elimina el campo de la carga útil
                     if (this.editingUser && !userPayload.password) {
@@ -244,32 +251,52 @@ export default {
                     }
 
                     if (this.editingUser) {
-                        await axios.put(`/api/users/${this.user.id}`, userPayload);
+                        response = await axios.put(`/api/users/${this.user.id}`, userPayload);
                     } else {
-                        await axios.post('/api/users', userPayload);
+                        response = await axios.post('/api/users', userPayload);
                     }
                     this.fetchUsers();
                     this.userDialog = false;
+                    this.toast.success(response.data.message);
                 } catch (error) {
-                    console.error('Error saving user:', error);
-                    alert('Hubo un error al guardar el usuario.');
+                    const errorMessage = error.response.data.message;
+                    if(errorMessage){
+                        this.toast.error(errorMessage);
+                    }
                 }
             }
         },
         async deleteUser(user) {
-            if (confirm(`¿Estás seguro de que deseas eliminar al usuario ${user.name}?`)) {
+            const result = await this.alertEliminar(`¿Estás seguro de que deseas eliminar el usuario ${user.name}?`);
+
+            if (result.isConfirmed) {
                 try {
                     await axios.delete(`/api/users/${user.id}`);
                     this.fetchUsers();
+                    this.toast.success(`El usuario ${user.name} ha sido eliminado correctamente.`);
                 } catch (error) {
-                    console.error('Error deleting user:', error);
-                    alert('Hubo un error al eliminar el usuario.');
+                    this.toast.error('Error eliminando el usuario:', error);
                 }
             }
         },
         closeUserDialog() {
             this.userDialog = false;
         },
+        alertEliminar(mensaje) {
+            return this.$swal({
+                title: "¿Estás seguro?",
+                text: mensaje,
+                icon: "info",
+                showCancelButton: true,
+                confirmButtonText: "Sí, deseo eliminar",
+                cancelButtonText: "Cancelar",
+                customClass: {
+                    confirmButton: 'btn text-white',
+                    cancelButton: 'btn text-white'
+                },
+                // buttonsStyling: false
+            });
+        }
     },
     created() {
         this.fetchUsers();

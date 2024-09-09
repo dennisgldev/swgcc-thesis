@@ -27,6 +27,10 @@ class UserController extends Controller
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8',
             'role_id' => 'required|integer|exists:roles,id', // Cambiado a role_id y asegurado que sea un ID válido
+        ],[
+            'cedula.unique' => 'Ya existe un usuario registrado con esa cédula',
+            'cedula.max' => 'La cédula no puede tener más de 10 caracteres.',
+            'email.unique' => 'Ya existe un usuario registrado con ese email',
         ]);
 
         Log::info('Datos validados para la creación de usuario', $validatedData);
