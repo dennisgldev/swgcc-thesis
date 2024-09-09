@@ -57,7 +57,14 @@
                                         <v-icon>mdi-format-align-right</v-icon>
                                     </v-btn>
                                 </div>
-                                <editor-content :editor="descriptionEditor" placeholder="Añadir descripción" />
+                                <editor-content
+                                    class="custom-editor" 
+                                    :editor="descriptionEditor" 
+                                    placeholder="Añadir descripción" 
+                                    :rules="[rules.required]" 
+                                    required
+                                />
+
                             </div>
 
                             <v-file-input
@@ -499,6 +506,7 @@ export default {
 
 .button-group {
     margin-bottom: 10px;
+    background-color: #f1f1f1;
 }
 
 .button-group .v-btn {
@@ -515,8 +523,20 @@ export default {
 }
 
 .editor-wrapper .ProseMirror {
-    min-height: 150px;
+    min-height: 10rem;
     padding: 10px;
     font-size: 16px;
+}
+.custom-editor{
+    border: 1px solid #ccc; /* Ejemplo de borde */
+    min-height: 10rem;
+    height: auto;
+    padding: 10px; /* Ejemplo de relleno */
+    font-size: 16px; /* Ejemplo de tamaño de fuente */
+    /* background-color: red; */
+}
+.custom-editor .ProseMirror{
+    background-color: red;
+    min-height: 10rem;
 }
 </style>
