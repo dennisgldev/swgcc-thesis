@@ -347,7 +347,7 @@ export default {
                 .then(response => {
                     this.enrollmentStatus = 'Finalizado';
                     // this.showFeedbackDialog('¡Felicidades! Has finalizado el curso con éxito.');
-                    this.toast.succcess('¡Felicidades! Has finalizado el curso con éxito.');
+                    this.toast.success('¡Felicidades! Has finalizado el curso con éxito.');
                 })
                 .catch(error => {
                     console.error('Error finalizing course:', error);

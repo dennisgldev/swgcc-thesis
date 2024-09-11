@@ -12,6 +12,7 @@
             <!-- Botón para el Panel de Administración, visible solo para administradores -->
             <v-btn text v-if="userCan('panel de gestión de usuarios')" @click="goToAdminPanel">Admin Dashboard</v-btn>
             <v-btn v-if="userCan('gestión de cursos y reportería')" color="primary" @click="generatePdf">Generar Reporte en PDF</v-btn>
+            <!-- <v-btn v-if="userCan('gestión de cursos y reportería')" color="primary" @click="generatePdfAdmin">Generar PDF Admin</v-btn> -->
             <v-btn text @click="openChangePasswordDialog">Cambiar Contraseña</v-btn>
             <!-- Botón para Crear Curso, visible solo para usuarios con el permiso de gestión de cursos -->
             <v-btn text @click="createCourse" v-if="userCan('gestión de cursos y reportería')">Crear Curso</v-btn>
@@ -236,7 +237,7 @@ export default {
 
                 const doc = new jsPDF();
                 let currentPage = 1;
-                let y = 40; // Ajustar el valor inicial de y
+                let y = 40; // Posición inicial de 'y'
 
                 const addPageHeaderFooter = () => {
                     // Encabezado
@@ -247,20 +248,20 @@ export default {
                     doc.setTextColor(0, 0, 0);
                     doc.text(`Generado por: ${this.userName.toUpperCase()}`, 105, 25, null, null, 'center');
 
-                    // Pie de página: solo el número de página en la esquina inferior derecha
+                    // Pie de página: solo el número de página
                     doc.setFontSize(10);
                     doc.setTextColor(150, 150, 150);
-                    doc.text(`${currentPage}`, 200, 290); // Solo el número de página
+                    doc.text(`${currentPage}`, 200, 290); // Número de página
                 };
 
                 addPageHeaderFooter();
 
                 courses.forEach((course, courseIndex) => {
-                    if (y + 100 > 280) { // Ajuste para crear nueva página si el contenido sobrepasa el límite
+                    if (y + 100 > 280) { // Ajuste para agregar nueva página si el contenido sobrepasa el límite
                         doc.addPage();
                         currentPage++;
                         addPageHeaderFooter();
-                        y = 30; // Reiniciar la posición y después del encabezado
+                        y = 30; // Reiniciar la posición 'y'
                     }
 
                     doc.setFontSize(14);
@@ -268,19 +269,22 @@ export default {
                     doc.text(`${courseIndex + 1}. ${course.title}`, 14, y);
                     y += 10;
 
+                    const allScores = [];
+                    const tableData = [];
+
                     if (course.enrollments && course.enrollments.length > 0) {
                         doc.setFontSize(14);
                         doc.text('Estudiantes inscritos:', 20, y);
                         y += 8;
 
-                        const tableData = [];
-
-                        course.enrollments.forEach((enrollment, studentIndex) => {
+                        course.enrollments.forEach((enrollment) => {
                             const studentName = enrollment.user ? enrollment.user.name.toUpperCase() : 'DESCONOCIDO';
 
                             enrollment.lesson_attempts.forEach(attempt => {
                                 const score = attempt.total_score ? parseFloat(attempt.total_score) : 0;
+                                allScores.push(score);
 
+                                // Agregar datos a la tabla
                                 tableData.push([
                                     studentName,
                                     attempt.lesson_title,
@@ -288,14 +292,9 @@ export default {
                                     score.toFixed(2)
                                 ]);
                             });
-
-                            const scoresByLesson = enrollment.lesson_attempts.map(attempt => parseFloat(attempt.total_score || 0));
-                            const lessonNumbers = enrollment.lesson_attempts.map((_, index) => index + 1);
-
-                            this.drawTrendGraph(doc, lessonNumbers, scoresByLesson, y);
-                            y += 70;  // Ajuste para dar más espacio al gráfico y evitar solapamientos
                         });
 
+                        // Dibujar la tabla de estudiantes
                         doc.autoTable({
                             head: [['Estudiante', 'Lección', 'Intentos', 'Calificación Total']],
                             body: tableData,
@@ -314,7 +313,13 @@ export default {
                                 fillColor: [240, 240, 240]
                             },
                         });
-                        y = doc.previousAutoTable.finalY + 20; // Ajuste de espacio después de la tabla
+
+                        // Ajustar la posición 'y' después de la tabla
+                        y = doc.previousAutoTable.finalY + 20;
+
+                        // Dibujar el gráfico de tendencia de calificaciones
+                        this.drawTrendGraph(doc, allScores, y);
+                        y += 70; // Ajuste de espacio para el gráfico
 
                     } else {
                         doc.setFontSize(12);
@@ -330,12 +335,16 @@ export default {
                 console.error('Error generating PDF:', error);
             }
         },
-        drawTrendGraph(doc, lessonNumbers, scores, yPosition) {
+        drawTrendGraph(doc, scores, yPosition) {
             // Configuración del gráfico
             const startX = 30;
             const graphWidth = 160;
             const graphHeight = 50;
-            const barWidth = graphWidth / lessonNumbers.length;
+            const studentCount = scores.length;
+            const barWidth = graphWidth / studentCount;
+
+            // Ordenar las calificaciones de menor a mayor
+            const sortedScores = scores.slice().sort((a, b) => a - b);
 
             doc.setLineWidth(0.2);
             doc.rect(startX, yPosition, graphWidth, graphHeight); // Dibujar el borde del gráfico
@@ -343,28 +352,39 @@ export default {
             const maxScore = 10;
             const yInterval = graphHeight / maxScore;
 
+            // Dibujar líneas de referencia horizontales (para las calificaciones)
             doc.setDrawColor(200);
             for (let i = 0; i <= 10; i += 2) {
                 const yGrid = yPosition + graphHeight - (i * yInterval);
                 doc.line(startX, yGrid, startX + graphWidth, yGrid);
-                doc.text(i.toString(), startX - 8, yGrid + 2);
+                doc.text(i.toString(), startX - 8, yGrid + 2); // Etiquetas del eje Y
             }
 
+            // Eje X: Número de estudiantes (por ejemplo: 0, 5, 10, 15)
+            const xInterval = Math.ceil(studentCount / 5); // Dividir el eje X en intervalos
+            doc.setDrawColor(0);
+            for (let i = 0; i <= studentCount; i += xInterval) {
+                const xPosition = startX + (i * barWidth);
+                doc.text(i.toString(), xPosition, yPosition + graphHeight + 5, { align: 'center' }); // Etiquetas del eje X
+            }
+
+            // Dibujar la línea de tendencia (calificaciones ordenadas)
             doc.setDrawColor(0, 122, 204);
             doc.setLineWidth(1.5);
-            for (let i = 0; i < lessonNumbers.length - 1; i++) {
+            for (let i = 0; i < sortedScores.length - 1; i++) {
                 const x1 = startX + (i * barWidth);
-                const y1 = yPosition + graphHeight - (scores[i] * yInterval);
+                const y1 = yPosition + graphHeight - (sortedScores[i] * yInterval);
                 const x2 = startX + ((i + 1) * barWidth);
-                const y2 = yPosition + graphHeight - (scores[i + 1] * yInterval);
+                const y2 = yPosition + graphHeight - (sortedScores[i + 1] * yInterval);
 
                 if (!isNaN(x1) && !isNaN(y1) && !isNaN(x2) && !isNaN(y2)) {
                     doc.line(x1, y1, x2, y2);
                 }
             }
 
+            // Dibujar los puntos de datos (calificaciones)
             doc.setFillColor(255, 0, 0);
-            scores.forEach((score, index) => {
+            sortedScores.forEach((score, index) => {
                 const x = startX + (index * barWidth);
                 const y = yPosition + graphHeight - (score * yInterval);
 
@@ -372,12 +392,111 @@ export default {
                     doc.circle(x, y, 1.5, 'F');
                 }
             });
-
-            lessonNumbers.forEach((_, index) => {
-                const x = startX + index * barWidth;
-                doc.text(`L${lessonNumbers[index]}`, x, yPosition + graphHeight + 5, { align: 'center' });
-            });
         },
+        // async generatePdfAdmin(){
+        //     try {
+        //         const response = await axios.get('/api/courses-with-enrollment');
+        //         const courses = Array.isArray(response.data) ? response.data : [];
+
+        //         if (courses.length === 0) {
+        //             console.warn('No se encontraron cursos.');
+        //             this.toast.warning('No se encontraron cursos');
+        //             return;
+        //         }
+        //         console.log(courses);
+
+        //         const doc = new jsPDF();
+        //         let currentPage = 1;
+        //         let y = 40; // Posición inicial de 'y'
+
+        //         const addPageHeaderFooter = () => {
+        //             // Encabezado
+        //             doc.setFontSize(22);
+        //             doc.setTextColor(33, 150, 243);
+        //             doc.text('Reporte Admin | Cursos y Estudiantes', 105, 15, null, null, 'center');
+        //             doc.setFontSize(14);
+        //             doc.setTextColor(0, 0, 0);
+        //             doc.text(`Generado por Admin`, 105, 25, null, null, 'center');
+
+        //             // Pie de página: solo el número de página
+        //             doc.setFontSize(10);
+        //             doc.setTextColor(150, 150, 150);
+        //             doc.text(`${currentPage}`, 200, 290); // Número de página
+        //         };
+
+        //         addPageHeaderFooter();
+
+        //         courses.forEach((course, courseIndex) => {
+        //             if (y + 100 > 280) { // Ajuste para agregar nueva página si el contenido sobrepasa el límite
+        //                 doc.addPage();
+        //                 currentPage++;
+        //                 addPageHeaderFooter();
+        //                 y = 30; // Reiniciar la posición 'y'
+        //             }
+
+        //             doc.setFontSize(14);
+        //             doc.setTextColor(60, 60, 60);
+        //             doc.text(`${courseIndex + 1}. ${course.title}`, 14, y);
+        //             doc.setFontSize(10);
+        //             doc.text(`Creado por: ${course.instructor.name}`, 14, y + 6);
+        //             y += 16;
+
+        //             const allScores = [];
+        //             const tableData = [];
+
+        //             if (course.enrollments && course.enrollments.length > 0) {
+        //                 doc.setFontSize(12);
+        //                 doc.text('Estudiantes inscritos:', 14, y);
+        //                 y += 8;
+
+        //                 course.enrollments.forEach((enrollment) => {
+        //                     const studentName = enrollment.user ? enrollment.user.name.toUpperCase() : 'DESCONOCIDO';
+        //                     const score = enrollment.total_score ? parseFloat(enrollment.total_score) : 0;
+        //                     allScores.push(score);
+        //                     console.log(allScores);
+        //                     // Agregar datos a la tabla
+        //                     tableData.push([
+        //                         studentName,
+        //                         score.toFixed(2)
+        //                     ]);
+        //                 });
+
+        //                 // Dibujar la tabla de estudiantes con calificación
+        //                 doc.autoTable({
+        //                     head: [['Estudiante', 'Calificación Total']],
+        //                     body: tableData,
+        //                     startY: y,
+        //                     styles: {
+        //                         fontSize: 10,
+        //                         textColor: [0, 0, 0],
+        //                         cellPadding: 3,
+        //                     },
+        //                     headStyles: {
+        //                         fillColor: [0, 122, 204],
+        //                         textColor: [255, 255, 255],
+        //                         fontStyle: 'bold'
+        //                     },
+        //                     alternateRowStyles: {
+        //                         fillColor: [240, 240, 240]
+        //                     },
+        //                 });
+
+        //                 // Ajustar la posición 'y' después de la tabla
+        //                 y = doc.previousAutoTable.finalY + 10;
+        //             } else {
+        //                 doc.setFontSize(12);
+        //                 doc.text('No hay estudiantes inscritos', 20, y);
+        //                 y += 8;
+        //             }
+
+        //             y += 10; // Espacio entre cursos
+        //         });
+
+        //         doc.save(`Reporte_Admin_Cursos_y_Estudiantes.pdf`);
+        //     } catch (error) {
+        //         console.error('Error generating PDF:', error);
+        //     }
+        // },
         userCan(permission) {
             const hasPermission = this.userPermissions.includes(permission);
             console.log(`Permisos del usuario:`, this.userPermissions);

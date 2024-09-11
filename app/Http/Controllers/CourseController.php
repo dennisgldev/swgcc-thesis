@@ -458,7 +458,7 @@ class CourseController extends Controller
         }
 
         // Obtener cursos con estudiantes inscritos y sus calificaciones
-        $courses = Course::with(['enrollments.user', 'sections.lessons'])->get();
+        $courses = Course::with(['enrollments.user', 'sections.lessons', 'instructor'])->get();
 
         foreach ($courses as $course) {
             foreach ($course->enrollments as $enrollment) {
