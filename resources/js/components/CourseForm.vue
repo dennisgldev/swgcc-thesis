@@ -35,27 +35,7 @@
                                     <v-btn @click="toggleFormat('underline')">
                                         <v-icon>mdi-format-underline</v-icon>
                                     </v-btn>
-                                    <v-btn @click="toggleFormat('heading', 1)">
-                                        <v-icon>mdi-format-header-1</v-icon>
-                                    </v-btn>
-                                    <v-btn @click="toggleFormat('heading', 2)">
-                                        <v-icon>mdi-format-header-2</v-icon>
-                                    </v-btn>
-                                    <v-btn @click="toggleFormat('bulletList')">
-                                        <v-icon>mdi-format-list-bulleted</v-icon>
-                                    </v-btn>
-                                    <v-btn @click="toggleFormat('orderedList')">
-                                        <v-icon>mdi-format-list-numbered</v-icon>
-                                    </v-btn>
-                                    <v-btn @click="toggleFormat('alignLeft')">
-                                        <v-icon>mdi-format-align-left</v-icon>
-                                    </v-btn>
-                                    <v-btn @click="toggleFormat('alignCenter')">
-                                        <v-icon>mdi-format-align-center</v-icon>
-                                    </v-btn>
-                                    <v-btn @click="toggleFormat('alignRight')">
-                                        <v-icon>mdi-format-align-right</v-icon>
-                                    </v-btn>
+
                                 </div>
                                 <editor-content
                                     class="custom-editor"
@@ -112,27 +92,6 @@
                                             <v-btn @click="toggleFormat('underline', sectionEditors[index])">
                                                 <v-icon>mdi-format-underline</v-icon>
                                             </v-btn>
-                                            <v-btn @click="toggleFormat('heading', sectionEditors[index], 1)">
-                                                <v-icon>mdi-format-header-1</v-icon>
-                                            </v-btn>
-                                            <v-btn @click="toggleFormat('heading', sectionEditors[index], 2)">
-                                                <v-icon>mdi-format-header-2</v-icon>
-                                            </v-btn>
-                                            <v-btn @click="toggleFormat('bulletList', sectionEditors[index])">
-                                                <v-icon>mdi-format-list-bulleted</v-icon>
-                                            </v-btn>
-                                            <v-btn @click="toggleFormat('orderedList', sectionEditors[index])">
-                                                <v-icon>mdi-format-list-numbered</v-icon>
-                                            </v-btn>
-                                            <v-btn @click="toggleFormat('alignLeft', sectionEditors[index])">
-                                                <v-icon>mdi-format-align-left</v-icon>
-                                            </v-btn>
-                                            <v-btn @click="toggleFormat('alignCenter', sectionEditors[index])">
-                                                <v-icon>mdi-format-align-center</v-icon>
-                                            </v-btn>
-                                            <v-btn @click="toggleFormat('alignRight', sectionEditors[index])">
-                                                <v-icon>mdi-format-align-right</v-icon>
-                                            </v-btn>
                                         </div>
                                         <editor-content
                                             :editor="sectionEditors[index]"
@@ -170,27 +129,6 @@
                                                 </v-btn>
                                                 <v-btn @click="toggleFormat('underline', lessonEditor)">
                                                     <v-icon>mdi-format-underline</v-icon>
-                                                </v-btn>
-                                                <v-btn @click="toggleFormat('heading', lessonEditor, 1)">
-                                                    <v-icon>mdi-format-header-1</v-icon>
-                                                </v-btn>
-                                                <v-btn @click="toggleFormat('heading', lessonEditor, 2)">
-                                                    <v-icon>mdi-format-header-2</v-icon>
-                                                </v-btn>
-                                                <v-btn @click="toggleFormat('bulletList', lessonEditor)">
-                                                    <v-icon>mdi-format-list-bulleted</v-icon>
-                                                </v-btn>
-                                                <v-btn @click="toggleFormat('orderedList', lessonEditor)">
-                                                    <v-icon>mdi-format-list-numbered</v-icon>
-                                                </v-btn>
-                                                <v-btn @click="toggleFormat('alignLeft', lessonEditor)">
-                                                    <v-icon>mdi-format-align-left</v-icon>
-                                                </v-btn>
-                                                <v-btn @click="toggleFormat('alignCenter', lessonEditor)">
-                                                    <v-icon>mdi-format-align-center</v-icon>
-                                                </v-btn>
-                                                <v-btn @click="toggleFormat('alignRight', lessonEditor)">
-                                                    <v-icon>mdi-format-align-right</v-icon>
                                                 </v-btn>
                                             </div>
                                             <editor-content
