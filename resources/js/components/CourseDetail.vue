@@ -221,9 +221,14 @@
 
 <script>
 import axios from 'axios';
+import { useToast } from "vue-toastification";
 
 export default {
     name: 'CourseDetail',
+    setup() {
+      const toast = useToast();
+      return { toast }
+    },
     data() {
         return {
             course: null,
@@ -326,11 +331,13 @@ export default {
                 .then(response => {
                     this.isEnrolled = true;
                     this.enrollmentStatus = response.data.enrollment.status;
-                    this.showFeedbackDialog('Inscripción realizada con éxito.');
+                    // this.showFeedbackDialog('Inscripción realizada con éxito.');
+                    this.toast.success('Inscripción realizada con éxito');
                 })
                 .catch(error => {
                     console.error('Error enrolling in course:', error);
-                    this.showFeedbackDialog('Error al inscribirse en el curso.');
+                    // this.showFeedbackDialog('Error al inscribirse en el curso.');
+                    this.toast.error('Error al inscribirse en el curso');
                 });
         },
         finalizeCourse() {
@@ -339,11 +346,13 @@ export default {
             axios.post(`/api/courses/${courseId}/finalize`)
                 .then(response => {
                     this.enrollmentStatus = 'Finalizado';
-                    this.showFeedbackDialog('¡Felicidades! Has finalizado el curso con éxito.');
+                    // this.showFeedbackDialog('¡Felicidades! Has finalizado el curso con éxito.');
+                    this.toast.succcess('¡Felicidades! Has finalizado el curso con éxito.');
                 })
                 .catch(error => {
                     console.error('Error finalizing course:', error);
-                    this.showFeedbackDialog('No has completado todas las lecciones o tu puntaje no cumple con el requisito mínimo de 7.');
+                    // this.showFeedbackDialog('No has completado todas las lecciones o tu puntaje no cumple con el requisito mínimo de 7.');
+                    this.toast.info('No has completado todas las lecciones o tu puntaje no cumple con el requisito mínimo de 7.');
                 });
         },
         submitLesson(lessonId) {
@@ -365,7 +374,7 @@ export default {
 
             axios.post(`/api/lessons/${lessonId}/submit`, payload)
                 .then(response => {
-                    this.showFeedbackDialog('Respuestas enviadas correctamente.');
+                    this.toast.info('Respuestas enviadas correctamente.');
                     this.course.sections.forEach(section => {
                         section.lessons.forEach(lesson => {
                             if (lesson.id === lessonId) {
@@ -376,7 +385,7 @@ export default {
                 })
                 .catch(error => {
                     console.error('Error submitting lesson:', error);
-                    this.showFeedbackDialog('Error al enviar las respuestas.');
+                    this.toast.error('Error al enviar las respuestas.');
                 });
         },
         checkRole() {

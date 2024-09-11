@@ -58,10 +58,10 @@
                                     </v-btn>
                                 </div>
                                 <editor-content
-                                    class="custom-editor" 
-                                    :editor="descriptionEditor" 
-                                    placeholder="Añadir descripción" 
-                                    :rules="[rules.required]" 
+                                    class="custom-editor"
+                                    :editor="descriptionEditor"
+                                    placeholder="Añadir descripción"
+                                    :rules="[rules.required]"
                                     required
                                 />
 
@@ -134,7 +134,13 @@
                                                 <v-icon>mdi-format-align-right</v-icon>
                                             </v-btn>
                                         </div>
-                                        <editor-content :editor="sectionEditors[index]" placeholder="Añadir contenido de la sección" />
+                                        <editor-content
+                                            :editor="sectionEditors[index]"
+                                            placeholder="Añadir contenido de la sección"
+                                            class="custom-editor"
+                                            :rules="[rules.required]"
+                                            required
+                                        />
                                     </div>
 
                                     <v-file-input
@@ -187,11 +193,21 @@
                                                     <v-icon>mdi-format-align-right</v-icon>
                                                 </v-btn>
                                             </div>
-                                            <editor-content :editor="lessonEditor" placeholder="Añadir contenido de la lección" />
+                                            <editor-content
+                                                :editor="lessonEditor"
+                                                placeholder="Añadir contenido de la lección"
+                                                class="custom-editor"
+                                                :rules="[rules.required]"
+                                                required
+                                            />
                                         </div>
-
-                                        <v-btn color="primary" @click="addQuestion(index)">Agregar Pregunta</v-btn>
-
+                                        <v-row>
+                                            <v-col cols="12" md="8" class="mb-4">
+                                                <div class="d-flex justify-end">
+                                                    <v-btn color="primary" @click="addQuestion(index)">Agregar Pregunta</v-btn>
+                                                </div>
+                                            </v-col>
+                                        </v-row>
                                         <div v-for="(question, questionIndex) in section.lesson.questions" :key="questionIndex">
                                             <v-text-field
                                                 v-model="question.text"
@@ -206,11 +222,16 @@
                                                 min="0.1"
                                                 step="0.1"
                                             ></v-text-field>
-
-                                            <v-btn color="secondary" @click="addAnswer(index, questionIndex)">Agregar Respuesta</v-btn>
+                                            <v-row>
+                                                <v-col cols="12" md="8" class="mb-4">
+                                                    <div class="d-flex justify-end">
+                                                        <v-btn color="secondary" @click="addAnswer(index, questionIndex)">Agregar Respuesta</v-btn>
+                                                    </div>
+                                                </v-col>
+                                            </v-row>
 
                                             <v-row v-for="(answer, answerIndex) in question.answers" :key="answerIndex" align="center">
-                                                <v-col cols="8">
+                                                <v-col cols="9">
                                                     <v-text-field
                                                         v-model="answer.text"
                                                         label="Respuesta"
@@ -218,7 +239,7 @@
                                                         required
                                                     ></v-text-field>
                                                 </v-col>
-                                                <v-col cols="4">
+                                                <v-col cols="3">
                                                     <v-radio
                                                         v-model="question.correctAnswer"
                                                         :value="answerIndex"
@@ -247,11 +268,16 @@ import StarterKit from '@tiptap/starter-kit';
 import TextAlign from '@tiptap/extension-text-align';
 import Underline from '@tiptap/extension-underline';
 import axios from 'axios';
+import { useToast } from "vue-toastification";
 
 export default {
     name: 'CourseForm',
     components: {
         EditorContent,
+    },
+    setup() {
+      const toast = useToast();
+      return { toast }
     },
     data() {
         return {
@@ -317,24 +343,25 @@ export default {
                     if (!section.lesson) {
                         section.lesson = { title: '', content: '', questions: [] };
                     }
-                    this.$nextTick(() => {
-                        if (!this.lessonEditor) {
-                            this.lessonEditor = new Editor({
-                                extensions: [StarterKit, TextAlign, Underline],
-                                content: section.lesson.content || '',
-                            });
+                    console.log(this.lessonEditor);
+                    // Asegúrate de que el editor esté siempre inicializado
+                    if (!this.lessonEditor) {
+                        this.lessonEditor = new Editor({
+                            extensions: [StarterKit, TextAlign, Underline],
+                            content: section.lesson.content || '<p></p>', // Inicializa con contenido vacío
+                        });
 
-                            this.lessonEditor.on('update', ({ editor }) => {
-                                this.updateLessonContent(editor.getHTML());
-                            });
-                        }
-                    });
+                        this.lessonEditor.on('update', () => {
+                            this.updateLessonContent(this.lessonEditor.getHTML());
+                        });
+                    }
                 } else {
                     section.lesson = null;
                 }
             });
         },
         updateLessonContent(content) {
+            console.log(content);
             const lastSection = this.course.sections[this.course.sections.length - 1];
             lastSection.lesson.content = content;
             console.log("Contenido de la lección actualizado:", content);
@@ -365,6 +392,88 @@ export default {
                 answer.correct = idx === answerIndex;
             });
         },
+        async validateFiles(){
+            const result = await this.alertEliminar(`¿Crear cursos sin archivos adjuntos?`);
+            if(result.isConfirmed){
+                return ;
+            }
+        },
+        validateForm() {
+            let isValid = true;
+            const courseDescription = this.descriptionEditor.getHTML();
+            // Verificar si el título, descripción y el instructor_id no están vacíos
+            if (!this.course.title) {
+                isValid = false;
+                this.toast.error('El título del curso es obligatorio.');
+            }
+            if(!this.coverImage){
+                isValid = false;
+                this.toast.error('El curso debe tener una portada.');
+            }
+            if (courseDescription === '<p></p>') {
+                isValid = false;
+                this.toast.error('La descripción del curso es obligatoria.');
+            }
+            if (!this.course.instructor_id) {
+                isValid = false;
+                this.toast.error('Debes seleccionar un instructor para el curso.');
+            }
+
+            // Verificar que cada sección tenga título y contenido
+            this.course.sections.forEach((section, sectionIndex) => {
+                const sectionContent = this.sectionEditors[sectionIndex].getHTML();
+                if (!section.title) {
+                    isValid = false;
+                    this.toast.error(`La sección ${section.title} debe tener un título.`);
+                }
+                if (sectionContent === '<p></p>') {
+                    isValid = false;
+                    this.toast.error(`La sección ${section.title} debe tener contenido.`);
+                }
+
+                // Verificar que la lección dentro de cada sección tenga título y contenido si está presente
+                if (section.lesson) {
+                    const lessonContent = section.lesson.content;
+                    if (!section.lesson.title) {
+                        isValid = false;
+                        this.toast.error(`La lección ${section.lesson.title} debe tener un título.`);
+                    }
+                    if (!lessonContent || lessonContent == '<p></p>') {
+                        isValid = false;
+                        this.toast.error(`La lección ${section.lesson.title} debe tener contenido.`);
+                    }
+                    if(section.lesson.questions.length === 0){
+                        isValid = false;
+                        this.toast.error(`La lección ${section.lesson.title} no tiene preguntas.`);
+                    }
+                    section.lesson.questions.forEach((question) => {
+                        if (question.answers.length === 0) {
+                            isValid = false;
+                            this.toast.error(`La pregunta "${question.text}" en la lección ${section.lesson.title} no tiene respuestas.`);
+                        } else {
+                            let hasCorrectAnswer = false;
+                            // Validar que cada respuesta tenga texto
+                            question.answers.forEach((answer, answerIndex) => {
+                                if (!answer.text.trim()) {
+                                    isValid = false;
+                                    this.toast.error(`La respuesta ${answerIndex + 1} de la pregunta "${question.text}" en la lección ${section.lesson.title} debe tener texto.`);
+                                }
+                                if (answer.correct) {
+                                    hasCorrectAnswer = true;
+                                }
+                            });
+
+                            if (!hasCorrectAnswer) {
+                                    isValid = false;
+                                    this.toast.error(`La pregunta "${question.text}" en la lección ${section.lesson.title} debe tener al menos una respuesta correcta.`);
+                                }
+                        }
+                    });
+                }
+            });
+
+            return isValid;
+        },
         prepareFormData() {
             const formData = new FormData();
             formData.append('title', this.course.title);
@@ -392,8 +501,7 @@ export default {
 
                         question.answers.forEach((answer, answerIndex) => {
                             formData.append(`sections[${sectionIndex}][lesson][questions][${questionIndex}][answers][${answerIndex}][text]`, answer.text);
-                            formData.append(a
-                                `sections[${sectionIndex}][lesson][questions][${questionIndex}][answers][${answerIndex}][correct]`,
+                            formData.append(`sections[${sectionIndex}][lesson][questions][${questionIndex}][answers][${answerIndex}][correct]`,
                                 answer.correct ? '1' : '0'
                             );
                         });
@@ -404,38 +512,47 @@ export default {
             return formData;
         },
         submitForm() {
-            console.log("Datos del curso:", this.course);
-            console.log("Descripción HTML:", this.descriptionEditor.getHTML());
-            this.sectionEditors.forEach((editor, index) => {
-                console.log(`Contenido de la sección ${index + 1}:`, editor.getHTML());
-            });
-            if (this.lessonEditor) {
-                console.log("Contenido de la lección:", this.lessonEditor.getHTML());
-            }
-
-            const lastSection = this.course.sections[this.course.sections.length - 1];
-            if (!lastSection.lesson || !lastSection.lesson.title || !lastSection.lesson.content) {
-                this.feedbackMessage = 'La lección de la última sección es obligatoria.';
-                this.feedbackType = 'error';
-                console.log("La lección de la última sección no está completa.");
-                return;
-            }
-
-            const formData = this.prepareFormData();
-
-            axios
-                .post('/api/courses', formData)
-                .then((response) => {
-                    console.log("Curso creado exitosamente:", response.data);
-                    this.$router.push('/courses');
-                })
-                .catch((error) => {
-                    console.error('Error al enviar el formulario:', error);
-                    if (error.response && error.response.data.errors) {
-                        this.feedbackMessage = `Error al enviar el formulario: ${JSON.stringify(error.response.data.errors)}`;
-                        this.feedbackType = 'error';
-                    }
+            // console.log("Datos del curso:", this.course);
+            // console.log("Descripción HTML:", tshis.descriptionEditor.getHTML());
+            console.log(this.course);
+            if(this.validateForm()){
+                this.sectionEditors.forEach((editor, index) => {
+                    console.log(`Contenido de la sección ${index + 1}:`, editor.getHTML());
                 });
+                if (this.lessonEditor) {
+                    console.log("Contenido de la lección:", this.lessonEditor.getHTML());
+                }
+
+                const lastSection = this.course.sections[this.course.sections.length - 1];
+                if (!lastSection.lesson || !lastSection.lesson.title || !lastSection.lesson.content) {
+                    // this.feedbackMessage = 'La lección de la última sección es obligatoria.';
+                    // this.feedbackType = 'error';
+                    this.toast.error('La lección de la ultima seccion no está completa');
+                    // console.log("La lección de la última sección no está completa.");
+                    return;
+                }
+
+                const formData = this.prepareFormData();
+
+                axios
+                    .post('/api/courses', formData)
+                    .then((response) => {
+                        // console.log("Curso creado exitosamente:", response.data);
+                        this.toast.success("Curso creado exitosamente:", response.data);
+                        this.$router.push('/courses');
+                    })
+                    .catch((error) => {
+                        this.toast.error('Error al enviar el formulario:', error.response.data.error);
+                        if (error.response && error.response.data.errors) {
+                            // this.feedbackMessage = `Error al enviar el formulario: ${JSON.stringify(error.response.data.errors)}`;
+                            // this.feedbackType = 'error';
+                            this.toast.error(`Error al enviar el formulario: ${JSON.stringify(error.response.data.errors)}`);
+                        }
+                    });
+            }else{
+                console.log('errores en el formulario');
+
+            }
         },
         fetchCourse() {
             const courseId = this.$route.params.id;
@@ -456,6 +573,20 @@ export default {
                             extensions: [StarterKit, TextAlign, Underline],
                             content: this.course.description,
                         });
+                        if (!this.lessonEditor) {
+                            console.log("Inicializando editor de lección");
+                            this.lessonEditor = new Editor({
+                                extensions: [StarterKit, TextAlign, Underline],
+                                content: this.course.lesson.content || '',
+                            });
+
+                            // Agrega un listener para actualizar el contenido de la lección
+                            this.lessonEditor.on('update', ({ editor }) => {
+                                this.updateLessonContent(editor.getHTML());
+                            });
+                        } else {
+                            console.log("Editor de lección ya está inicializado");
+                        }
                         this.updateLessons();
                     })
                     .catch((error) => {
@@ -471,6 +602,16 @@ export default {
                         extensions: [StarterKit, TextAlign, Underline],
                     })
                 );
+                console.log("Inicializando editor de lección para nuevo curso");
+                this.lessonEditor = new Editor({
+                    extensions: [StarterKit, TextAlign, Underline],
+                    content: '',
+                });
+
+                // Agrega un listener para actualizar el contenido de la lección
+                this.lessonEditor.on('update', ({ editor }) => {
+                    this.updateLessonContent(editor.getHTML());
+                });
             }
         },
         goBackToCourses() {
@@ -482,6 +623,21 @@ export default {
                 this.$router.push('/login');
             });
         },
+        alertEliminar(mensaje) {
+            return this.$swal({
+                title: "¿Estás seguro?",
+                text: mensaje,
+                icon: "info",
+                showCancelButton: true,
+                confirmButtonText: "Sí, deseo eliminar",
+                cancelButtonText: "Cancelar",
+                customClass: {
+                    confirmButton: 'btn text-white',
+                    cancelButton: 'btn text-white'
+                },
+                // buttonsStyling: false
+            });
+        }
     },
     created() {
         axios.get('/api/user').then((response) => {
@@ -531,12 +687,7 @@ export default {
     border: 1px solid #ccc; /* Ejemplo de borde */
     min-height: 10rem;
     height: auto;
-    padding: 10px; /* Ejemplo de relleno */
-    font-size: 16px; /* Ejemplo de tamaño de fuente */
-    /* background-color: red; */
-}
-.custom-editor .ProseMirror{
-    background-color: red;
-    min-height: 10rem;
+    padding: 10px;
+    font-size: 16px;
 }
 </style>

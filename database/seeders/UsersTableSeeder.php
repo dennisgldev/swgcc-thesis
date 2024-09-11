@@ -33,7 +33,7 @@ class UsersTableSeeder extends Seeder
             ],
             [
                 'name' => 'John Doe',
-                'cedula' => '1234567890',
+                'cedula' => 'docenteeee',
                 'email' => 'johndoe@example.com',
                 'password' => Hash::make('password'),
                 'role' => 'docente',
@@ -109,7 +109,7 @@ class UsersTableSeeder extends Seeder
                 'role' => 'docente',
             ],
         ];
-        
+
 
         foreach ($users as $userData) {
             $user = User::create([

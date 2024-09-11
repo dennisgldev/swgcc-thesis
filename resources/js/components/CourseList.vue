@@ -135,9 +135,14 @@
 import axios from 'axios';
 import { jsPDF } from "jspdf";
 import "jspdf-autotable";
+import { useToast } from "vue-toastification";
 
 export default {
     name: 'CourseList',
+    setup() {
+      const toast = useToast();
+      return { toast }
+    },
     data() {
         return {
             courses: [],
@@ -225,6 +230,7 @@ export default {
 
                 if (courses.length === 0) {
                     console.warn('No se encontraron cursos.');
+                    this.toast.warning('No se encontraron cursos');
                     return;
                 }
 
@@ -405,24 +411,28 @@ export default {
             console.log('Navegando a la creación de un nuevo curso');
             this.$router.push('/courses/create');
         },
-        deleteCourse(courseId) {
+        async deleteCourse(courseId) {
             console.log(`Intentando eliminar el curso con ID: ${courseId}`);
-            axios.delete(`/api/courses/${courseId}`)
-                .then(response => {
-                    console.log('Curso eliminado exitosamente');
-                    this.fetchCourses();
-                    alert('Curso eliminado con éxito');
-                })
-                .catch(error => {
-                    console.error('Error deleting course:', error.response ? error.response : error);
-                });
+            const result = await this.alertEliminar(`¿Estás seguro de que deseas eliminar el curso?`);
+            if(result.isConfirmed){
+                console.log('Elimino');
+                axios.delete(`/api/courses/${courseId}`)
+                    .then(response => {
+                        this.fetchCourses();
+                        this.toast.success('El curso eliminado con éxito');
+                    })
+                    .catch(error => {
+                        console.error('Error deleting course:', error.response ? error.response : error);
+                        this.toast.error('Hubo un error al eliminar el curso', error.response);
+                    });
+            }
         },
         logout() {
             console.log('Cerrando sesión');
             axios.post('/logout')
                 .then(() => {
                     localStorage.removeItem('authToken');
-                    console.log('Sesión cerrada, redirigiendo a la página de inicio de sesión');
+                    this.toast.info('Sesión cerrada, redirigiendo a la página de inicio de sesión');
                     this.$router.push('/login');
                 })
                 .catch(error => {
@@ -449,6 +459,7 @@ export default {
             })
                 .then(response => {
                     console.log('Contraseña cambiada exitosamente');
+                    this.toast.success('Se ha actualizado la contraseña correctamente');
                     this.feedbackMessage = 'Contraseña cambiada con éxito.';
                     this.feedbackDialog = true;
                     this.closeChangePasswordDialog();
@@ -485,6 +496,21 @@ export default {
             const color = colorMap[status] || 'grey lighten-1';
             console.log(`Estado del curso: ${status}, Color asignado: ${color}`);
             return color;
+        },
+        alertEliminar(mensaje) {
+            return this.$swal({
+                title: "¿Estás seguro?",
+                text: mensaje,
+                icon: "info",
+                showCancelButton: true,
+                confirmButtonText: "Sí, deseo eliminar",
+                cancelButtonText: "Cancelar",
+                customClass: {
+                    confirmButton: 'btn text-white',
+                    cancelButton: 'btn text-white'
+                },
+                // buttonsStyling: false
+            });
         }
     },
     created() {
