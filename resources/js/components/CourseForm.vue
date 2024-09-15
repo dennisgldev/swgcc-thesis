@@ -22,17 +22,38 @@
                                 :rules="[rules.required]"
                                 required
                             ></v-text-field>
-                            <v-textarea
-                                v-model="course.description"
-                                label="Descripción"
-                                :rules="[rules.required]"
-                            ></v-textarea>
+
+                            <!-- Editor de descripción del curso con feedback visual y barra de herramientas -->
+                            <div class="editor-wrapper">
+                                <div v-if="descriptionEditor" class="button-group">
+                                    <v-btn @click="toggleFormat('bold')">
+                                        <v-icon>mdi-format-bold</v-icon>
+                                    </v-btn>
+                                    <v-btn @click="toggleFormat('italic')">
+                                        <v-icon>mdi-format-italic</v-icon>
+                                    </v-btn>
+                                    <v-btn @click="toggleFormat('underline')">
+                                        <v-icon>mdi-format-underline</v-icon>
+                                    </v-btn>
+
+                                </div>
+                                <editor-content
+                                    class="custom-editor"
+                                    :editor="descriptionEditor"
+                                    placeholder="Añadir descripción"
+                                    :rules="[rules.required]"
+                                    required
+                                />
+
+                            </div>
+
                             <v-file-input
                                 v-model="coverImage"
                                 label="Portada"
                                 accept="image/*"
                                 :rules="[rules.required]"
                             ></v-file-input>
+
                             <v-file-input
                                 v-model="files"
                                 label="Archivos adjuntos"
@@ -58,11 +79,29 @@
                                         :rules="[rules.required]"
                                         required
                                     ></v-text-field>
-                                    <v-textarea
-                                        v-model="section.content"
-                                        label="Contenido de la Sección"
-                                        :rules="[rules.required]"
-                                    ></v-textarea>
+
+                                    <!-- Editor de contenido de la sección con feedback visual y barra de herramientas -->
+                                    <div class="editor-wrapper">
+                                        <div v-if="sectionEditors[index]" class="button-group">
+                                            <v-btn @click="toggleFormat('bold', sectionEditors[index])">
+                                                <v-icon>mdi-format-bold</v-icon>
+                                            </v-btn>
+                                            <v-btn @click="toggleFormat('italic', sectionEditors[index])">
+                                                <v-icon>mdi-format-italic</v-icon>
+                                            </v-btn>
+                                            <v-btn @click="toggleFormat('underline', sectionEditors[index])">
+                                                <v-icon>mdi-format-underline</v-icon>
+                                            </v-btn>
+                                        </div>
+                                        <editor-content
+                                            :editor="sectionEditors[index]"
+                                            placeholder="Añadir contenido de la sección"
+                                            class="custom-editor"
+                                            :rules="[rules.required]"
+                                            required
+                                        />
+                                    </div>
+
                                     <v-file-input
                                         v-model="section.media"
                                         label="Medios adjuntos"
@@ -78,15 +117,35 @@
                                             :rules="[rules.required]"
                                             required
                                         ></v-text-field>
-                                        <v-textarea
-                                            v-model="section.lesson.content"
-                                            label="Contenido de la Lección"
-                                            :rules="[rules.required]"
-                                            required
-                                        ></v-textarea>
 
-                                        <v-btn color="primary" @click="addQuestion(index)">Agregar Pregunta</v-btn>
-
+                                        <!-- Editor de contenido de la lección con feedback visual y barra de herramientas -->
+                                        <div class="editor-wrapper">
+                                            <div v-if="lessonEditor" class="button-group">
+                                                <v-btn @click="toggleFormat('bold', lessonEditor)">
+                                                    <v-icon>mdi-format-bold</v-icon>
+                                                </v-btn>
+                                                <v-btn @click="toggleFormat('italic', lessonEditor)">
+                                                    <v-icon>mdi-format-italic</v-icon>
+                                                </v-btn>
+                                                <v-btn @click="toggleFormat('underline', lessonEditor)">
+                                                    <v-icon>mdi-format-underline</v-icon>
+                                                </v-btn>
+                                            </div>
+                                            <editor-content
+                                                :editor="lessonEditor"
+                                                placeholder="Añadir contenido de la lección"
+                                                class="custom-editor"
+                                                :rules="[rules.required]"
+                                                required
+                                            />
+                                        </div>
+                                        <v-row>
+                                            <v-col cols="12" md="8" class="mb-4">
+                                                <div class="d-flex justify-end">
+                                                    <v-btn color="primary" @click="addQuestion(index)">Agregar Pregunta</v-btn>
+                                                </div>
+                                            </v-col>
+                                        </v-row>
                                         <div v-for="(question, questionIndex) in section.lesson.questions" :key="questionIndex">
                                             <v-text-field
                                                 v-model="question.text"
@@ -100,14 +159,17 @@
                                                 type="number"
                                                 min="0.1"
                                                 step="0.1"
-                                                :rules="[rules.required, rules.totalPoints(section.lesson.questions)]"
-                                                required
                                             ></v-text-field>
-
-                                            <v-btn color="secondary" @click="addAnswer(index, questionIndex)">Agregar Respuesta</v-btn>
+                                            <v-row>
+                                                <v-col cols="12" md="8" class="mb-4">
+                                                    <div class="d-flex justify-end">
+                                                        <v-btn color="secondary" @click="addAnswer(index, questionIndex)">Agregar Respuesta</v-btn>
+                                                    </div>
+                                                </v-col>
+                                            </v-row>
 
                                             <v-row v-for="(answer, answerIndex) in question.answers" :key="answerIndex" align="center">
-                                                <v-col cols="8">
+                                                <v-col cols="9">
                                                     <v-text-field
                                                         v-model="answer.text"
                                                         label="Respuesta"
@@ -115,12 +177,13 @@
                                                         required
                                                     ></v-text-field>
                                                 </v-col>
-                                                <v-col cols="4">
-                                                    <v-checkbox
-                                                        v-model="answer.correct"
+                                                <v-col cols="3">
+                                                    <v-radio
+                                                        v-model="question.correctAnswer"
+                                                        :value="answerIndex"
                                                         label="Correcta"
-                                                        @change="validateSingleCorrectAnswer(section.lesson.questions, questionIndex)"
-                                                    ></v-checkbox>
+                                                        @change="selectCorrectAnswer(index, questionIndex, answerIndex)"
+                                                    ></v-radio>
                                                 </v-col>
                                             </v-row>
                                         </div>
@@ -138,10 +201,22 @@
 </template>
 
 <script>
+import { Editor, EditorContent } from '@tiptap/vue-3';
+import StarterKit from '@tiptap/starter-kit';
+import TextAlign from '@tiptap/extension-text-align';
+import Underline from '@tiptap/extension-underline';
 import axios from 'axios';
+import { useToast } from "vue-toastification";
 
 export default {
     name: 'CourseForm',
+    components: {
+        EditorContent,
+    },
+    setup() {
+      const toast = useToast();
+      return { toast }
+    },
     data() {
         return {
             course: {
@@ -153,116 +228,201 @@ export default {
                         title: '',
                         content: '',
                         media: [],
-                        lesson: { title: '', content: '', questions: [] }
-                    }
-                ]
+                        lesson: { title: '', content: '', questions: [] },
+                    },
+                ],
             },
             coverImage: null,
             files: [],
-            activeSection: 0,
+            descriptionEditor: null,
+            sectionEditors: [],
+            lessonEditor: null,
             isEditing: false,
             valid: true,
             feedbackMessage: '',
             feedbackType: 'error',
             rules: {
-                required: value => !!value || 'Este campo es requerido.',
-                totalPoints: questions => value => {
-                    const totalPoints = questions.reduce((sum, question) => sum + parseFloat(question.points || 0), 0);
-                    return totalPoints === 10 || 'La suma total de puntos debe ser exactamente 10.';
-                }
+                required: (value) => !!value || 'Este campo es requerido.',
             },
         };
     },
     methods: {
+        toggleFormat(format, editor = this.descriptionEditor, level = null) {
+            if (level) {
+                editor.chain().focus().toggleHeading({ level }).run();
+            } else {
+                editor.chain().focus()[`toggle${format.charAt(0).toUpperCase() + format.slice(1)}`]().run();
+            }
+        },
         addSection() {
             this.course.sections.push({
                 title: '',
                 content: '',
                 media: [],
-                lesson: null // La lección solo se agrega en la última sección
+                lesson: null,
             });
-            this.activeSection = this.course.sections.length - 1;
+            this.sectionEditors.push(
+                new Editor({
+                    extensions: [StarterKit, TextAlign, Underline],
+                })
+            );
             this.updateLessons();
         },
         removeSection() {
             if (this.course.sections.length > 1) {
                 this.course.sections.pop();
-                this.activeSection = this.course.sections.length - 1;
+                this.sectionEditors.pop();
                 this.updateLessons();
             }
         },
         updateLessons() {
-            // Solo la última sección puede tener la lección
             this.course.sections.forEach((section, index) => {
                 if (index === this.course.sections.length - 1) {
                     if (!section.lesson) {
-                        section.lesson = {title: '', content: '', questions: []};
+                        section.lesson = { title: '', content: '', questions: [] };
+                    }
+                    console.log(this.lessonEditor);
+                    // Asegúrate de que el editor esté siempre inicializado
+                    if (!this.lessonEditor) {
+                        this.lessonEditor = new Editor({
+                            extensions: [StarterKit, TextAlign, Underline],
+                            content: section.lesson.content || '<p></p>', // Inicializa con contenido vacío
+                        });
+
+                        this.lessonEditor.on('update', () => {
+                            this.updateLessonContent(this.lessonEditor.getHTML());
+                        });
                     }
                 } else {
                     section.lesson = null;
                 }
             });
         },
+        updateLessonContent(content) {
+            console.log(content);
+            const lastSection = this.course.sections[this.course.sections.length - 1];
+            lastSection.lesson.content = content;
+            console.log("Contenido de la lección actualizado:", content);
+        },
         addQuestion(sectionIndex) {
-            this.course.sections[sectionIndex].lesson.questions.push({
-                text: '',
-                points: 0,
-                answers: []
-            });
+            const section = this.course.sections[sectionIndex];
+            if (section.lesson) {
+                section.lesson.questions.push({
+                    text: '',
+                    type: 'única',
+                    points: 1,
+                    answers: [],
+                });
+            }
         },
         addAnswer(sectionIndex, questionIndex) {
-            this.course.sections[sectionIndex].lesson.questions[questionIndex].answers.push({
-                text: '',
-                correct: false
+            const question = this.course.sections[sectionIndex].lesson.questions[questionIndex];
+            if (question) {
+                question.answers.push({
+                    text: '',
+                    correct: false,
+                });
+            }
+        },
+        selectCorrectAnswer(sectionIndex, questionIndex, answerIndex) {
+            const question = this.course.sections[sectionIndex].lesson.questions[questionIndex];
+            question.answers.forEach((answer, idx) => {
+                answer.correct = idx === answerIndex;
             });
         },
-        validateSingleCorrectAnswer(questions, questionIndex) {
-            const question = questions[questionIndex];
-            const correctAnswers = question.answers.filter(answer => answer.correct);
-            if (correctAnswers.length > 1) {
-                question.answers[question.answers.length - 1].correct = false;
-                this.feedbackMessage = "Solo puede haber una respuesta correcta por pregunta.";
-                this.feedbackType = "error";
-            } else {
-                this.feedbackMessage = '';
+        async validateFiles(){
+            const result = await this.alertEliminar(`¿Crear cursos sin archivos adjuntos?`);
+            if(result.isConfirmed){
+                return ;
             }
         },
-        submitForm() {
-            const lastSection = this.course.sections[this.course.sections.length - 1];
-            if (!lastSection.lesson || !lastSection.lesson.title || !lastSection.lesson.content) {
-                this.feedbackMessage = 'La lección de la última sección es obligatoria.';
-                this.feedbackType = "error";
-                return;
+        validateForm() {
+            let isValid = true;
+            const courseDescription = this.descriptionEditor.getHTML();
+            // Verificar si el título, descripción y el instructor_id no están vacíos
+            if (!this.course.title) {
+                isValid = false;
+                this.toast.error('El título del curso es obligatorio.');
+            }
+            if(!this.coverImage){
+                isValid = false;
+                this.toast.error('El curso debe tener una portada.');
+            }
+            if (courseDescription === '<p></p>') {
+                isValid = false;
+                this.toast.error('La descripción del curso es obligatoria.');
+            }
+            if (!this.course.instructor_id) {
+                isValid = false;
+                this.toast.error('Debes seleccionar un instructor para el curso.');
             }
 
-            const formData = this.prepareFormData();
+            // Verificar que cada sección tenga título y contenido
+            this.course.sections.forEach((section, sectionIndex) => {
+                const sectionContent = this.sectionEditors[sectionIndex].getHTML();
+                if (!section.title) {
+                    isValid = false;
+                    this.toast.error(`La sección ${section.title} debe tener un título.`);
+                }
+                if (sectionContent === '<p></p>') {
+                    isValid = false;
+                    this.toast.error(`La sección ${section.title} debe tener contenido.`);
+                }
 
-            const request = this.isEditing
-                ? axios.put(`/api/courses/${this.course.id}`, formData)
-                : axios.post('/api/courses', formData);
+                // Verificar que la lección dentro de cada sección tenga título y contenido si está presente
+                if (section.lesson) {
+                    const lessonContent = section.lesson.content;
+                    if (!section.lesson.title) {
+                        isValid = false;
+                        this.toast.error(`La lección ${section.lesson.title} debe tener un título.`);
+                    }
+                    if (!lessonContent || lessonContent == '<p></p>') {
+                        isValid = false;
+                        this.toast.error(`La lección ${section.lesson.title} debe tener contenido.`);
+                    }
+                    if(section.lesson.questions.length === 0){
+                        isValid = false;
+                        this.toast.error(`La lección ${section.lesson.title} no tiene preguntas.`);
+                    }
+                    section.lesson.questions.forEach((question) => {
+                        if (question.answers.length === 0) {
+                            isValid = false;
+                            this.toast.error(`La pregunta "${question.text}" en la lección ${section.lesson.title} no tiene respuestas.`);
+                        } else {
+                            let hasCorrectAnswer = false;
+                            // Validar que cada respuesta tenga texto
+                            question.answers.forEach((answer, answerIndex) => {
+                                if (!answer.text.trim()) {
+                                    isValid = false;
+                                    this.toast.error(`La respuesta ${answerIndex + 1} de la pregunta "${question.text}" en la lección ${section.lesson.title} debe tener texto.`);
+                                }
+                                if (answer.correct) {
+                                    hasCorrectAnswer = true;
+                                }
+                            });
 
-            request.then(response => {
-                this.$router.push('/courses');
-            }).catch(error => {
-                if (error.response && error.response.data.errors) {
-                    this.feedbackMessage = `Error al enviar el formulario: ${JSON.stringify(error.response.data.errors)}`;
-                    this.feedbackType = "error";
-                } else {
-                    console.error('Error desconocido:', error);
+                            if (!hasCorrectAnswer) {
+                                    isValid = false;
+                                    this.toast.error(`La pregunta "${question.text}" en la lección ${section.lesson.title} debe tener al menos una respuesta correcta.`);
+                                }
+                        }
+                    });
                 }
             });
+
+            return isValid;
         },
         prepareFormData() {
             const formData = new FormData();
             formData.append('title', this.course.title);
-            formData.append('description', this.course.description);
+            formData.append('description', this.descriptionEditor.getHTML());
             formData.append('instructor_id', this.course.instructor_id);
             if (this.coverImage) formData.append('cover_image', this.coverImage);
-            this.files.forEach(file => formData.append('files[]', file));
+            this.files.forEach((file) => formData.append('files[]', file));
 
             this.course.sections.forEach((section, sectionIndex) => {
                 formData.append(`sections[${sectionIndex}][title]`, section.title);
-                formData.append(`sections[${sectionIndex}][content]`, section.content);
+                formData.append(`sections[${sectionIndex}][content]`, this.sectionEditors[sectionIndex].getHTML());
 
                 section.media.forEach((mediaFile, mediaIndex) => {
                     formData.append(`sections[${sectionIndex}][media][${mediaIndex}]`, mediaFile);
@@ -279,7 +439,9 @@ export default {
 
                         question.answers.forEach((answer, answerIndex) => {
                             formData.append(`sections[${sectionIndex}][lesson][questions][${questionIndex}][answers][${answerIndex}][text]`, answer.text);
-                            formData.append(`sections[${sectionIndex}][lesson][questions][${questionIndex}][answers][${answerIndex}][correct]`, answer.correct ? '1' : '0');
+                            formData.append(`sections[${sectionIndex}][lesson][questions][${questionIndex}][answers][${answerIndex}][correct]`,
+                                answer.correct ? '1' : '0'
+                            );
                         });
                     });
                 }
@@ -287,57 +449,183 @@ export default {
 
             return formData;
         },
+        submitForm() {
+            // console.log("Datos del curso:", this.course);
+            // console.log("Descripción HTML:", tshis.descriptionEditor.getHTML());
+            console.log(this.course);
+            if(this.validateForm()){
+                this.sectionEditors.forEach((editor, index) => {
+                    console.log(`Contenido de la sección ${index + 1}:`, editor.getHTML());
+                });
+                if (this.lessonEditor) {
+                    console.log("Contenido de la lección:", this.lessonEditor.getHTML());
+                }
+
+                const lastSection = this.course.sections[this.course.sections.length - 1];
+                if (!lastSection.lesson || !lastSection.lesson.title || !lastSection.lesson.content) {
+                    // this.feedbackMessage = 'La lección de la última sección es obligatoria.';
+                    // this.feedbackType = 'error';
+                    this.toast.error('La lección de la ultima seccion no está completa');
+                    // console.log("La lección de la última sección no está completa.");
+                    return;
+                }
+
+                const formData = this.prepareFormData();
+
+                axios
+                    .post('/api/courses', formData)
+                    .then((response) => {
+                        // console.log("Curso creado exitosamente:", response.data);
+                        this.toast.success("Curso creado exitosamente:", response.data);
+                        this.$router.push('/courses');
+                    })
+                    .catch((error) => {
+                        this.toast.error('Error al enviar el formulario:', error.response.data.error);
+                        if (error.response && error.response.data.errors) {
+                            // this.feedbackMessage = `Error al enviar el formulario: ${JSON.stringify(error.response.data.errors)}`;
+                            // this.feedbackType = 'error';
+                            this.toast.error(`Error al enviar el formulario: ${JSON.stringify(error.response.data.errors)}`);
+                        }
+                    });
+            }else{
+                console.log('errores en el formulario');
+
+            }
+        },
         fetchCourse() {
             const courseId = this.$route.params.id;
             if (courseId) {
                 this.isEditing = true;
-                axios.get(`/api/courses/${courseId}/edit`)
-                    .then(response => {
+                axios
+                    .get(`/api/courses/${courseId}/edit`)
+                    .then((response) => {
                         this.course = response.data;
                         this.sectionsCount = this.course.sections.length;
+                        this.sectionEditors = this.course.sections.map(
+                            () =>
+                                new Editor({
+                                    extensions: [StarterKit, TextAlign, Underline],
+                                })
+                        );
+                        this.descriptionEditor = new Editor({
+                            extensions: [StarterKit, TextAlign, Underline],
+                            content: this.course.description,
+                        });
+                        if (!this.lessonEditor) {
+                            console.log("Inicializando editor de lección");
+                            this.lessonEditor = new Editor({
+                                extensions: [StarterKit, TextAlign, Underline],
+                                content: this.course.lesson.content || '',
+                            });
+
+                            // Agrega un listener para actualizar el contenido de la lección
+                            this.lessonEditor.on('update', ({ editor }) => {
+                                this.updateLessonContent(editor.getHTML());
+                            });
+                        } else {
+                            console.log("Editor de lección ya está inicializado");
+                        }
                         this.updateLessons();
                     })
-                    .catch(error => {
+                    .catch((error) => {
                         console.error('Error al obtener el curso:', error);
                     });
+            } else {
+                this.descriptionEditor = new Editor({
+                    extensions: [StarterKit, TextAlign, Underline],
+                    content: '',
+                });
+                this.sectionEditors.push(
+                    new Editor({
+                        extensions: [StarterKit, TextAlign, Underline],
+                    })
+                );
+                console.log("Inicializando editor de lección para nuevo curso");
+                this.lessonEditor = new Editor({
+                    extensions: [StarterKit, TextAlign, Underline],
+                    content: '',
+                });
+
+                // Agrega un listener para actualizar el contenido de la lección
+                this.lessonEditor.on('update', ({ editor }) => {
+                    this.updateLessonContent(editor.getHTML());
+                });
             }
         },
         goBackToCourses() {
             this.$router.push('/courses');
         },
         logout() {
-            console.log('Logging out...');
-            axios.post('/logout')
-                .then(() => {
-                    localStorage.removeItem('authToken');
-                    console.log('Logout successful.');
-                    this.$router.push('/login');
-                })
-                .catch(error => {
-                    console.error('Error logging out:', error);
-                });
+            axios.post('/logout').then(() => {
+                localStorage.removeItem('authToken');
+                this.$router.push('/login');
+            });
+        },
+        alertEliminar(mensaje) {
+            return this.$swal({
+                title: "¿Estás seguro?",
+                text: mensaje,
+                icon: "info",
+                showCancelButton: true,
+                confirmButtonText: "Sí, deseo eliminar",
+                cancelButtonText: "Cancelar",
+                customClass: {
+                    confirmButton: 'btn text-white',
+                    cancelButton: 'btn text-white'
+                },
+                // buttonsStyling: false
+            });
         }
     },
     created() {
-        axios.get('/api/user')
-            .then(response => {
-                this.course.instructor_id = response.data.id;
-                this.fetchCourse();
-            })
-            .catch(error => {
-                console.error('Error al obtener el ID del instructor:', error);
-            });
-    }
+        axios.get('/api/user').then((response) => {
+            this.course.instructor_id = response.data.id;
+            this.fetchCourse();
+        });
+    },
 };
 </script>
 
 <style scoped>
-.course-card {
-    cursor: pointer;
-    transition: transform 0.3s;
+.editor-wrapper {
+    border: 1px solid #ddd;
+    padding: 10px;
+    margin-bottom: 20px;
+    background-color: #fafafa;
 }
 
-.course-card:hover {
-    transform: scale(1.05);
+.editor-wrapper:focus-within {
+    border-color: #1976d2;
+}
+
+.button-group {
+    margin-bottom: 10px;
+    background-color: #f1f1f1;
+}
+
+.button-group .v-btn {
+    margin-right: 5px;
+    background-color: #f1f1f1;
+    border: 1px solid #ccc;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 4px;
+}
+
+.button-group .v-btn.is-active {
+    background-color: #ccc;
+}
+
+.editor-wrapper .ProseMirror {
+    min-height: 10rem;
+    padding: 10px;
+    font-size: 16px;
+}
+.custom-editor{
+    border: 1px solid #ccc; /* Ejemplo de borde */
+    min-height: 10rem;
+    height: auto;
+    padding: 10px;
+    font-size: 16px;
 }
 </style>

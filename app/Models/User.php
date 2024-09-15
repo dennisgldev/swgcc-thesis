@@ -2,16 +2,16 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Spatie\Permission\Traits\HasRoles;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
+    use HasApiTokens, HasFactory, Notifiable, HasRoles, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -23,8 +23,9 @@ class User extends Authenticatable
         'email',
         'password',
         'cedula',
-        'role_id',
     ];
+
+    protected $dates = ['deleted_at'];
 
     /**
      * The attributes that should be hidden for serialization.
@@ -47,33 +48,48 @@ class User extends Authenticatable
     ];
 
     /**
-     * Relationship with the Role model.
+     * Mutador para almacenar el nombre en minúsculas.
      */
-    public function role()
+    public function setNameAttribute($value)
     {
-        return $this->belongsTo(Role::class);
+        $this->attributes['name'] = strtolower($value);
     }
 
     /**
-     * Take cedula to login
+     * Take cedula to login.
      */
     public function getAuthIdentifierName()
     {
         return 'cedula';
     }
 
+    /**
+     * Get the user's ID attribute.
+     */
     public function getUserIdAttribute()
     {
         return $this->attributes['id'];
     }
 
+    /**
+     * Relationship with enrolled courses.
+     */
     public function enrolledCourses()
     {
         return $this->belongsToMany(Course::class, 'course_user', 'user_id', 'course_id');
     }
 
+    /**
+     * Relationship with lesson responses.
+     */
     public function lessonResponses()
     {
         return $this->hasMany(LessonResponse::class);
     }
+
+    public function role()
+    {
+        return $this->belongsTo(Role::class);
+    }
+
 }

@@ -12,9 +12,17 @@ use Illuminate\Support\Facades\Log;
 class CourseController extends Controller
 {
     // Listar todos los cursos (disponible para docentes y estudiantes)
-    public function index()
+    public function index(Request $request)
     {
-        $userId = auth()->id(); // Obtener el ID del usuario autenticado
+        $user = $request->user();
+        Log::info('Accediendo a la lista de cursos', ['user_id' => $user->id]);
+
+        if (!$user->can('ver cursos')) {
+            Log::warning('Acceso denegado para listar cursos', ['user_id' => $user->id]);
+            return response()->json(['message' => 'This action is unauthorized.'], 403);
+        }
+
+        $userId = $user->id;
 
         $courses = Course::with(['instructor', 'sections.lessons', 'enrollments'])->get();
 
@@ -35,9 +43,17 @@ class CourseController extends Controller
     }
 
     // Mostrar los detalles de un curso (disponible para docentes y estudiantes)
-    public function show($id)
+    public function show(Request $request, $id)
     {
-        $userId = auth()->id(); // Obtener el ID del usuario autenticado
+        $user = $request->user();
+        Log::info('Accediendo a los detalles del curso', ['user_id' => $user->id, 'course_id' => $id]);
+
+        if (!$user->can('ver cursos')) {
+            Log::warning('Acceso denegado para ver detalles del curso', ['user_id' => $user->id, 'course_id' => $id]);
+            return response()->json(['message' => 'This action is unauthorized.'], 403);
+        }
+
+        $userId = $user->id;
 
         $course = Course::with([
             'instructor',
@@ -48,7 +64,8 @@ class CourseController extends Controller
                 $query->where('user_id', $userId);
             }
         ])->findOrFail($id);
-        Log::info($course);
+
+        Log::info('Curso encontrado', ['course_id' => $course->id]);
 
         // Obtener el estado de la inscripción del usuario
         $enrollment = $course->enrollments->first();
@@ -89,6 +106,14 @@ class CourseController extends Controller
     // Crear un nuevo curso (solo para docentes)
     public function store(Request $request)
     {
+        $user = $request->user();
+        Log::info('Intentando crear un curso', ['user_id' => $user->id]);
+
+        if (!$user->can('gestión de cursos y reportería')) {
+            Log::warning('Acceso denegado para crear curso', ['user_id' => $user->id]);
+            return response()->json(['message' => 'This action is unauthorized.'], 403);
+        }
+
         // Validación de datos
         $validatedData = $request->validate([
             'title' => 'required|string|max:255',
@@ -130,6 +155,8 @@ class CourseController extends Controller
         }
 
         $course = Course::create($validatedData);
+
+        Log::info('Curso creado con éxito', ['course_id' => $course->id]);
 
         // Guardar archivos adjuntos del curso si se proporcionan
         if ($request->hasFile('files')) {
@@ -191,14 +218,30 @@ class CourseController extends Controller
     }
 
     // Editar un curso (solo para docentes)
-    public function edit(Course $course)
+    public function edit(Request $request, Course $course)
     {
+        $user = $request->user();
+        Log::info('Intentando editar un curso', ['user_id' => $user->id, 'course_id' => $course->id]);
+
+        if (!$user->can('gestión de cursos y reportería')) {
+            Log::warning('Acceso denegado para editar curso', ['user_id' => $user->id, 'course_id' => $course->id]);
+            return response()->json(['message' => 'This action is unauthorized.'], 403);
+        }
+
         return response()->json($course->load(['sections.lessons.questions.answers', 'media']));
     }
 
     // Actualizar un curso (solo para docentes)
     public function update(Request $request, Course $course)
     {
+        $user = $request->user();
+        Log::info('Intentando actualizar un curso', ['user_id' => $user->id, 'course_id' => $course->id]);
+
+        if (!$user->can('gestión de cursos y reportería')) {
+            Log::warning('Acceso denegado para actualizar curso', ['user_id' => $user->id, 'course_id' => $course->id]);
+            return response()->json(['message' => 'This action is unauthorized.'], 403);
+        }
+
         $validatedData = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -228,6 +271,8 @@ class CourseController extends Controller
         }
 
         $course->update($validatedData);
+
+        Log::info('Curso actualizado con éxito', ['course_id' => $course->id]);
 
         // Actualizar medios del curso
         if ($request->hasFile('files')) {
@@ -288,8 +333,16 @@ class CourseController extends Controller
     }
 
     // Eliminar un curso (solo para docentes)
-    public function destroy(Course $course)
+    public function destroy(Request $request, Course $course)
     {
+        $user = $request->user();
+        Log::info('Intentando eliminar un curso', ['user_id' => $user->id, 'course_id' => $course->id]);
+
+        if (!$user->can('gestión de cursos y reportería')) {
+            Log::warning('Acceso denegado para eliminar curso', ['user_id' => $user->id, 'course_id' => $course->id]);
+            return response()->json(['message' => 'This action is unauthorized.'], 403);
+        }
+
         if ($course->cover_image) {
             Storage::disk('public')->delete($course->cover_image);
         }
@@ -320,18 +373,24 @@ class CourseController extends Controller
 
         $course->delete();
 
+        Log::info('Curso eliminado con éxito', ['course_id' => $course->id]);
+
         return response()->json(['message' => 'Curso eliminado con éxito']);
     }
 
-    public function finalize($id)
+    public function finalize(Request $request, $id)
     {
-        // Iniciar el proceso de finalización
-        Log::info('Iniciando finalización del curso', ['course_id' => $id, 'user_id' => auth()->id()]);
+        $user = $request->user();
+        Log::info('Iniciando finalización del curso', ['course_id' => $id, 'user_id' => $user->id]);
+
+        if (!$user->can('inscribirse a cursos')) {
+            Log::warning('Acceso denegado para finalizar curso', ['user_id' => $user->id, 'course_id' => $id]);
+            return response()->json(['message' => 'This action is unauthorized.'], 403);
+        }
 
         // Encontrar el curso y la inscripción del usuario autenticado
         $course = Course::findOrFail($id);
-        $user = auth()->user();
-        Log::info('Curso y usuario encontrados', ['course_id' => $course->id, 'user_id' => $user->id]);
+        Log::info('Curso encontrado para finalización', ['course_id' => $course->id]);
 
         $enrollment = Enrollment::where('course_id', $course->id)
             ->where('user_id', $user->id)
@@ -389,28 +448,57 @@ class CourseController extends Controller
         return $totalScore;
     }
 
-    public function create()
+    public function getCoursesWithEnrollments(Request $request)
     {
-        return response()->view('welcome', [], 200);
+        $user = $request->user();
+
+        // Verificar permisos
+        if (!$user->can('gestión de cursos y reportería')) {
+            return response()->json(['message' => 'This action is unauthorized.'], 403);
+        }
+
+        // Obtener cursos con estudiantes inscritos y sus calificaciones
+        $courses = Course::with(['enrollments.user', 'sections.lessons', 'instructor'])->get();
+
+        foreach ($courses as $course) {
+            foreach ($course->enrollments as $enrollment) {
+                $studentId = $enrollment->user_id;
+                $lessonAttempts = [];
+
+                foreach ($course->sections as $section) {
+                    foreach ($section->lessons as $lesson) {
+                        $lastLessonResponse = LessonResponse::where('lesson_id', $lesson->id)
+                            ->where('user_id', $studentId)
+                            ->orderBy('created_at', 'desc')
+                            ->first();
+
+                        if ($lastLessonResponse) {
+                            $lessonAttempts[] = [
+                                'lesson_id' => $lesson->id,
+                                'lesson_title' => $lesson->title,
+                                'attempts_count' => LessonResponse::where('lesson_id', $lesson->id)
+                                    ->where('user_id', $studentId)
+                                    ->count(),
+                                'total_score' => $lastLessonResponse->score
+                            ];
+                        } else {
+                            $lessonAttempts[] = [
+                                'lesson_id' => $lesson->id,
+                                'lesson_title' => $lesson->title ?? 'SIN TÍTULO',
+                                'attempts_count' => 0,
+                                'total_score' => 0
+                            ];
+                        }
+                    }
+                }
+
+                // Asegúrate de que los datos del usuario sean válidos
+                if ($enrollment->user) {
+                    $enrollment->setAttribute('lesson_attempts', $lessonAttempts);
+                }
+            }
+        }
+
+        return response()->json($courses->toArray());
     }
-
-
-//    private function calculateUserScore($course, $user)
-//    {
-//        $lessonResponses = LessonResponse::where('user_id', $user->id)
-//            ->whereHas('lesson.section', function ($query) use ($course) {
-//                $query->where('course_id', $course->id);
-//            })
-//            ->get();
-//
-//        $totalScore = 0;
-//        $totalLessons = 0;
-//
-//        foreach ($lessonResponses as $response) {
-//            $totalScore += $response->score;
-//            $totalLessons++;
-//        }
-//
-//        return $totalLessons > 0 ? $totalScore / $totalLessons : 0;
-//    }
 }

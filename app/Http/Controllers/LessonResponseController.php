@@ -48,28 +48,31 @@ class LessonResponseController extends Controller
     public function show($lessonId)
     {
         $userId = auth()->user()->id;
-
+    
         // Validar si el usuario está inscrito en el curso de la lección
         $lesson = Lesson::findOrFail($lessonId);
         $course = $lesson->section->course;
-
-        Log::info(!$course->students()->where('user_id', $userId)->exists());
-//        if (!$course->students()->where('user_id', $userId)->exists()) {
-//            return response()->json(['message' => 'No estás inscrito en este curso.'], 403);
-//        }
-
+    
+        // Verificar si el usuario está inscrito en el curso
+        if (!$course->students()->where('user_id', $userId)->exists()) {
+            Log::warning('Usuario no inscrito intentando acceder a respuestas de lección', ['user_id' => $userId, 'lesson_id' => $lessonId]);
+            return response()->json(['message' => 'No estás inscrito en este curso.'], 403);
+        }
+    
         // Obtener las respuestas del usuario autenticado para una lección específica
         $lessonResponse = LessonResponse::with('answers')
                             ->where('user_id', $userId)
                             ->where('lesson_id', $lessonId)
                             ->first();
-
+    
         if (!$lessonResponse) {
+            Log::info('No se encontraron respuestas para la lección', ['user_id' => $userId, 'lesson_id' => $lessonId]);
             return response()->json(['message' => 'No se encontraron respuestas para esta lección.'], 404);
         }
-
+    
+        Log::info('Respuestas encontradas para la lección', ['user_id' => $userId, 'lesson_id' => $lessonId]);
         return response()->json($lessonResponse);
-    }
+    }    
 
     public function submit(Request $request, Lesson $lesson)
     {

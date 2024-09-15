@@ -1,35 +1,44 @@
 <template>
     <v-container>
-        <h2>Gestión de Roles Personalizados</h2>
-        <v-card>
-            <v-card-title>Roles Personalizados Disponibles</v-card-title>
-            <v-card-text>
-                <v-data-table
-                    :headers="headers"
-                    :items="roles"
+        <v-row>
+            <v-col cols="12">
+                <h2>Gestión de Roles</h2>
+                <v-btn color="primary" @click="openRoleDialog">Agregar Rol</v-btn>
+                <v-data-table-virtual
+                    :headers="roleHeaders"
+                    :items="sortedRoles"
                     class="elevation-1"
+                    hide-default-footer
                 >
+                    <template v-slot:item.name="{ item }">
+                        {{ item.name.charAt(0).toUpperCase() + item.name.slice(1).toLowerCase() }}
+                    </template>
+                    <template v-slot:item.permissions="{ item }">
+                        <v-list-item
+                            v-for="permission in item.permissions"
+                            :key="permission.id"
+                            :title="permission.name.charAt(0).toUpperCase() + permission.name.slice(1).toLowerCase()"
+                        >
+                        </v-list-item>
+                    </template>
                     <template v-slot:item.actions="{ item }">
-                        <v-btn icon @click="openEditDialog(item)">
+                        <v-btn icon @click="openRoleEditDialog(item)">
                             <v-icon>mdi-pencil</v-icon>
                         </v-btn>
                         <v-btn icon @click="deleteRole(item)">
                             <v-icon>mdi-delete</v-icon>
                         </v-btn>
                     </template>
-                </v-data-table>
-            </v-card-text>
-            <v-card-actions>
-                <v-btn color="primary" @click="openCreateDialog">Agregar Rol</v-btn>
-            </v-card-actions>
-        </v-card>
+                </v-data-table-virtual>
+            </v-col>
+        </v-row>
 
-        <!-- Diálogo para crear/editar roles personalizados -->
-        <v-dialog v-model="dialog" max-width="500px">
+        <!-- Diálogo para crear/editar roles -->
+        <v-dialog v-model="roleDialog" max-width="500px">
             <v-card>
                 <v-card-title>
-                    <span v-if="editingRole">Editar Rol Personalizado</span>
-                    <span v-else>Crear Rol Personalizado</span>
+                    <span v-if="editingRole">Editar Rol</span>
+                    <span v-else>Crear Rol</span>
                 </v-card-title>
                 <v-card-text>
                     <v-form ref="roleForm">
@@ -38,25 +47,25 @@
                             v-model="role.name"
                             :rules="[rules.required]"
                         ></v-text-field>
-                        <!-- Selector de roles base como radio buttons -->
-                        <v-radio-group
-                            v-model="role.role_id"
-                            :rules="[rules.required]"
-                            label="Rol Base Asociado"
-                        >
-                            <v-radio
-                                v-for="roleBase in rolesBase"
-                                :key="roleBase.id"
-                                :label="roleBase.name"
-                                :value="roleBase.id"
-                            ></v-radio>
-                        </v-radio-group>
+                        <v-row>
+                            <v-col cols="12">
+                                <label>Permisos</label>
+                                <v-checkbox
+                                    v-for="permission in permissions"
+                                    :key="permission.id"
+                                    :label="permission.name"
+                                    :value="permission.id"
+                                     :rules="[rules.permissionsSelected]"
+                                    v-model="role.permissions"
+                                ></v-checkbox>
+                            </v-col>
+                        </v-row>
                     </v-form>
                 </v-card-text>
                 <v-card-actions>
                     <v-spacer></v-spacer>
-                    <v-btn color="blue-grey lighten-1" @click="saveRole">{{ editingRole ? 'Guardar Cambios' : 'Crear Rol' }}</v-btn>
-                    <v-btn color="secondary" @click="closeDialog">Cancelar</v-btn>
+                    <v-btn color="primary" @click="saveRole">{{ editingRole ? 'Guardar Cambios' : 'Crear Rol' }}</v-btn>
+                    <v-btn color="secondary" @click="closeRoleDialog">Cancelar</v-btn>
                 </v-card-actions>
             </v-card>
         </v-dialog>
@@ -65,106 +74,144 @@
 
 <script>
 import axios from 'axios';
+import { useToast } from "vue-toastification";
 
 export default {
-    name: 'CustomRoleManagement',
+    name: 'RoleManagement',
+    setup() {
+      const toast = useToast();
+      return { toast }
+    },
     data() {
         return {
             roles: [],
+            permissions: [],
             role: {
                 name: '',
-                role_id: null, // ID del rol base seleccionado
+                permissions: [], // Esta propiedad almacenará los IDs de los permisos seleccionados
             },
-            rolesBase: [
-                { id: 1, name: 'Gestionar usuarios' },
-                { id: 2, name: 'Gestionar cursos' },
-                { id: 3, name: 'Realizar cursos' },
-                { id: 4, name: 'Externo' },
-            ],
-            headers: [
-                { text: 'Nombre del Rol Personalizado', value: 'name' },
-                { text: 'Rol Base Asociado', value: 'role_base' }, // Nueva columna para mostrar el rol base asociado
+            roleHeaders: [
+                { text: 'Nombre del Rol', value: 'name' },
+                { text: 'Permisos', value: 'permissions' },
                 { text: 'Acciones', value: 'actions', sortable: false },
             ],
-            dialog: false,
-            editingRole: false, // Indica si se está editando o creando un rol
+            roleDialog: false,
+            editingRole: false,
             rules: {
                 required: value => !!value || 'Este campo es requerido',
+                permissionsSelected: value => value.length > 0,
             },
         };
+    },
+    computed: {
+        sortedRoles() {
+            return this.roles.sort((a, b) => a.name.localeCompare(b.name));
+        }
     },
     methods: {
         async fetchRoles() {
             try {
-                const response = await axios.get('/api/custom_roles');
+                const response = await axios.get('/api/roles');
                 this.roles = response.data.map(role => ({
-                    ...role,
-                    role_base: this.rolesBase.find(r => r.id === role.role_id)?.name || 'N/A'
+                    id: role.id,
+                    name: role.name,
+                    permissions: role.permissions.map(p => ({ id: p.id, name: p.name })), // Asegurarse de que los permisos sean el objeto correcto
                 }));
                 console.log('Roles fetched:', this.roles);
             } catch (error) {
                 console.error('Error fetching roles:', error);
             }
         },
-        openCreateDialog() {
-            this.editingRole = false;
-            this.role = { name: '', role_id: null }; // Inicializa el rol personalizado
-            this.dialog = true;
-            console.log('Opening create dialog:', this.role);
+        async fetchPermissions() {
+            try {
+                const response = await axios.get('/api/permissions');
+                this.permissions = response.data; // Directamente asignar los permisos recibidos
+                console.log('Permissions fetched:', this.permissions);
+            } catch (error) {
+                console.error('Error fetching permissions:', error);
+            }
         },
-        openEditDialog(role) {
+        openRoleDialog() {
+            this.editingRole = false;
+            this.role = { name: '', permissions: [] };
+            this.roleDialog = true;
+        },
+        openRoleEditDialog(role) {
             this.editingRole = true;
-            this.role = { ...role, role_id: role.role_id };
-            this.dialog = true;
-            console.log('Opening edit dialog:', this.role);
+            this.role = {
+                id: role.id,
+                name: role.name,
+                permissions: role.permissions.map(p => p.id), // Solo IDs de permisos
+            };
+            this.roleDialog = true;
+            console.log('Editing role:', this.role);
         },
         async saveRole() {
-            if (this.$refs.roleForm.validate()) {
+            const isValid = await this.$refs.roleForm.validate();
+            if(this.role.permissions.length === 0){
+                this.toast.error('Debe seleccionar al menos un permiso');
+            }else if (isValid.valid) {
                 try {
-                    const payload = {
-                        name: this.role.name,
-                        role_id: this.role.role_id,
-                    };
-
-                    console.log('Payload to save role:', payload);
-
+                    let response;
                     if (this.editingRole) {
-                        await axios.put(`/api/custom_roles/${this.role.id}`, payload);
+                        response = await axios.put(`/api/roles/${this.role.id}`, this.role);
                     } else {
-                        await axios.post('/api/custom_roles', payload);
+                        response = await axios.post('/api/roles', this.role);
                     }
-                    this.dialog = false;
                     this.fetchRoles();
+                    this.roleDialog = false;
+                    this.toast.success(response.data.message);
                 } catch (error) {
-                    console.error('Error saving role:', error);
-                    if (error.response && error.response.status === 422) {
-                        alert('Hubo un error con los datos proporcionados: ' + JSON.stringify(error.response.data.errors));
-                    } else {
-                        alert('Hubo un error al guardar el rol. Por favor, intenta nuevamente.');
+                    const errorMessage = error.response.data.message;
+                    if(errorMessage){
+                        this.toast.error(errorMessage);
                     }
                 }
             }
         },
         async deleteRole(role) {
-            if (confirm(`¿Estás seguro de que deseas eliminar el rol ${role.name}?`)) {
+            // Esperamos a que el usuario confirme o cancele la alerta
+            const result = await this.alertEliminar(`¿Estás seguro de que deseas eliminar el rol ${role.name}?`);
+
+            // Si el usuario confirma la eliminación
+            if (result.isConfirmed) {
                 try {
-                    await axios.delete(`/api/custom_roles/${role.id}`);
+                    await axios.delete(`/api/roles/${role.id}`);
                     this.fetchRoles();
+                    // Mostrar mensaje de éxito
+                    this.toast.success(`El rol ${role.name} ha sido eliminado correctamente.`);
                 } catch (error) {
-                    console.error('Error deleting role:', error);
+                    this.toast.error('Error eliminando el rol:', error);
                 }
             }
         },
-        closeDialog() {
-            this.dialog = false;
+        closeRoleDialog() {
+            this.roleDialog = false;
         },
+        alertEliminar(mensaje) {
+            return this.$swal({
+                title: "¿Estás seguro?",
+                text: mensaje,
+                icon: "info",
+                showCancelButton: true,
+                confirmButtonText: "Sí, deseo eliminar",
+                cancelButtonText: "Cancelar",
+                customClass: {
+                    confirmButton: 'btn text-white',
+                    cancelButton: 'btn text-white'
+                },
+                // buttonsStyling: false
+            });
+        }
+
     },
     created() {
         this.fetchRoles();
+        this.fetchPermissions(); // Obtener los permisos cuando se carga el componente
     },
 };
 </script>
 
 <style scoped>
-/* Estilos específicos para la gestión de roles personalizados */
+/* Estilos específicos para la gestión de roles */
 </style>

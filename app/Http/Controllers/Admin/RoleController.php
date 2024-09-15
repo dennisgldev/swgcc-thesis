@@ -3,68 +3,81 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Role;
 use Illuminate\Http\Request;
-use App\Models\Permission;
 use Illuminate\Support\Facades\Log;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\Models\Permission;
 
 class RoleController extends Controller
 {
     public function index()
     {
-        return response()->json(Role::all());
+        $roles = Role::with('permissions')->get();
+        return response()->json($roles);
     }
 
     public function store(Request $request)
     {
-        Log::info($request->all());
         $validatedData = $request->validate([
-            'name' => 'required|string|max:255|unique:roles',
-            'permission_role_id' => 'required|integer',
+            'name' => 'required|string|max:255',
+            'permissions' => 'array',
+            'permissions.*' => 'integer|exists:permissions,id'
+        ]);
+        $existingRole = Role::where('name', $validatedData['name'])
+                            ->where('guard_name', 'web')
+                            ->first();
+
+        if ($existingRole) {
+            return response()->json([
+                'message' => 'Ya existe un rol con este nombre.',
+            ], 400); // Código de estado 400 para indicar una solicitud incorrecta
+        }
+
+        // Establecer el guard_name por defecto a 'web'
+        $role = Role::create([
+            'name' => $validatedData['name'],
+            'guard_name' => 'web'
         ]);
 
-        $role = Role::create(['name' => $validatedData['name']]);
-
-        Permission::create([
-            'name' => $this->getPermissionName($validatedData['permission_role_id']),
-            'role_id' => $role->id,
-        ]);
+        if (isset($validatedData['permissions'])) {
+            $role->syncPermissions($validatedData['permissions']);
+        }
 
         return response()->json(['message' => 'Rol creado con éxito', 'role' => $role], 201);
     }
 
     public function update(Request $request, Role $role)
     {
-        Log::info($request);
         $validatedData = $request->validate([
-            'name' => 'required|string|max:255|unique:roles,name,' . $role->id,
-            'permission_role_id' => 'required|integer',
+            'name' => 'required|string|max:255',
+            'permissions' => 'array',
+            'permissions.*' => 'integer|exists:permissions,id'
         ]);
 
-        $role->update(['name' => $validatedData['name']]);
-
-        $role->permissions()->delete();
-        Permission::create([
-            'name' => $this->getPermissionName($validatedData['permission_role_id']),
-            'role_id' => $role->id,
+        // Actualizar el guard_name por defecto a 'web'
+        $role->update([
+            'name' => $validatedData['name'],
+            'guard_name' => 'web'
         ]);
 
-        return response()->json(['message' => 'Rol actualizado con éxito', 'role' => $role]);
+        $role->syncPermissions($validatedData['permissions']);
+
+        return response()->json(['message' => 'Rol actualizado con éxito', 'role' => $role], 200);
     }
 
-    private function getPermissionName($role_id)
+
+    public function destroy(Role $role)
     {
-        switch ($role_id) {
-            case 1:
-                return 'Gestionar Usuarios';
-            case 2:
-                return 'Gestión de Cursos';
-            case 3:
-                return 'Realizar Cursos';
-            case 4:
-                return 'Externo';
-            default:
-                return 'Sin Permiso';
-        }
+        Log::info('Eliminando rol:', ['role' => $role->toArray()]);
+
+        $role->delete();
+        return response()->json(null, 204);
     }
+
+    public function permissions()
+    {
+        $permissions = Permission::all();
+        return response()->json($permissions);
+    }
+
 }

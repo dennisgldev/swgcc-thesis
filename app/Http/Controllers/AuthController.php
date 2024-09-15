@@ -11,43 +11,49 @@ class AuthController extends Controller
 {
     public function login(Request $request)
     {
-        Log::info('Iniciando el proceso de login'); // Log para verificar el inicio del proceso
-
+        Log::info('Iniciando el proceso de login'); 
+    
         $credentials = $request->validate([
             'cedula' => ['required', 'string'],
             'password' => ['required', 'string'],
         ]);
-
-        Log::info('Credenciales validadas', $credentials); // Log para verificar las credenciales
-
+    
+        Log::info('Credenciales validadas', $credentials); 
+    
         if (Auth::attempt($credentials)) {
-            Log::info('Autenticación exitosa'); // Log para verificar si la autenticación fue exitosa
-
+            Log::info('Autenticación exitosa');
+    
             $request->session()->regenerate();
-
+    
             $user = Auth::user();
-            Log::info('Usuario autenticado', ['user_id' => $user->id, 'role' => $user->role->name]); // Log del usuario autenticado
-
+    
+            if ($user->roles->isEmpty()) {
+                Log::error('El usuario no tiene un rol asignado', ['user_id' => $user->id]);
+                return response()->json(['message' => 'No tienes un rol asignado. Contacta al administrador.'], 403);
+            }
+    
+            Log::info('Usuario autenticado', ['user_id' => $user->id, 'role' => $user->roles->pluck('name')->toArray()]);
+    
             try {
                 $token = $user->createToken('API Token')->plainTextToken;
-                Log::info('Token creado con éxito'); // Log para verificar si el token fue creado
+                Log::info('Token creado con éxito');
             } catch (\Exception $e) {
-                Log::error('Error al crear el token', ['error' => $e->getMessage()]); // Log para capturar cualquier error en la creación del token
+                Log::error('Error al crear el token', ['error' => $e->getMessage()]);
                 return response()->json(['message' => 'Error al crear el token'], 500);
             }
-
+    
             return response()->json([
                 'message' => 'Inicio de sesión exitoso',
                 'token' => $token,
-                'role' => $user->role->name
+                'role' => $user->roles->pluck('name')->toArray()
             ], 200);
         }
-
-        Log::warning('Falló la autenticación'); // Log para el caso de que la autenticación falle
-
+    
+        Log::warning('Falló la autenticación'); 
+    
         return response()->json(['message' => 'Las credenciales proporcionadas no coinciden con nuestros registros.'], 401);
-    }
-
+    }    
+    
     public function logout(Request $request)
     {
         Auth::logout();

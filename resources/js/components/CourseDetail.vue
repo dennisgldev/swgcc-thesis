@@ -8,6 +8,12 @@
             <v-toolbar-title class="headline">SWGCC</v-toolbar-title>
             <v-spacer></v-spacer>
 <!--            <v-btn text @click="createCourse" v-if="isTeacher">Crear Curso</v-btn>-->
+            <v-btn color="primary" @click="enrollInCourse" v-if="!isEnrolled">
+                Inscribirse en el Curso
+            </v-btn>
+            <v-btn v-if="isEnrolled && enrollmentStatus === 'En curso' && isLastSection" color="primary" @click="finalizeCourse">
+                Finalizar Curso
+            </v-btn>
             <v-btn text @click="logout">Cerrar Sesión</v-btn>
         </v-app-bar>
         <v-row>
@@ -32,7 +38,7 @@
 
                     <!-- Descripción del curso -->
                     <v-card-text>
-                        {{ course.description }}
+                        <div v-html="course.description"></div>
                     </v-card-text>
 
                     <!-- Archivos adjuntos del curso -->
@@ -53,7 +59,7 @@
 
                                 <v-list-item v-for="file in media.files" :key="file.id">
                                     <template v-if="isVideo(file.file_type)">
-                                        <video controls :src="file.file_url" width="100%"></video>
+                                        <video controls :src="file.file_url" width="50%"></video>
                                     </template>
                                     <template v-else>
                                         <a :href="file.file_url" target="_blank">{{ file.file_name }}</a>
@@ -64,14 +70,14 @@
                     </v-list>
 
                     <!-- Footer -->
-                    <v-card-actions>
-                        <v-btn color="primary" @click="enrollInCourse" v-if="!isEnrolled">
-                            Inscribirse en el Curso
-                        </v-btn>
-                        <v-btn v-if="isEnrolled && enrollmentStatus === 'En curso' && isLastSection" color="primary" @click="finalizeCourse">
-                            Finalizar Curso
-                        </v-btn>
-                    </v-card-actions>
+<!--                    <v-card-actions>-->
+<!--                        <v-btn color="primary" @click="enrollInCourse" v-if="!isEnrolled">-->
+<!--                            Inscribirse en el Curso-->
+<!--                        </v-btn>-->
+<!--                        <v-btn v-if="isEnrolled && enrollmentStatus === 'En curso' && isLastSection" color="primary" @click="finalizeCourse">-->
+<!--                            Finalizar Curso-->
+<!--                        </v-btn>-->
+<!--                    </v-card-actions>-->
                 </v-card>
 
                 <!-- Secciones -->
@@ -81,7 +87,7 @@
                             {{ section.title }}
                         </v-expansion-panel-title>
                         <v-expansion-panel-text>
-                            <p>{{ section.content }}</p>
+                            <div v-html="section.content"></div>
 
                             <!-- Archivos adjuntos de la sección -->
                             <div v-if="section.media && section.media.length > 0" class="mb-3">
@@ -117,7 +123,7 @@
                                         {{ lesson.title }}
                                     </v-expansion-panel-title>
                                     <v-expansion-panel-text>
-                                        <p>{{ lesson.content }}</p>
+                                        <div v-html="lesson.content"></div>
 
                                         <!-- Archivos adjuntos de la lección -->
                                         <div v-if="lesson.media && lesson.media.length > 0" class="mb-3">
@@ -215,9 +221,14 @@
 
 <script>
 import axios from 'axios';
+import { useToast } from "vue-toastification";
 
 export default {
     name: 'CourseDetail',
+    setup() {
+      const toast = useToast();
+      return { toast }
+    },
     data() {
         return {
             course: null,
@@ -320,11 +331,13 @@ export default {
                 .then(response => {
                     this.isEnrolled = true;
                     this.enrollmentStatus = response.data.enrollment.status;
-                    this.showFeedbackDialog('Inscripción realizada con éxito.');
+                    // this.showFeedbackDialog('Inscripción realizada con éxito.');
+                    this.toast.success('Inscripción realizada con éxito');
                 })
                 .catch(error => {
                     console.error('Error enrolling in course:', error);
-                    this.showFeedbackDialog('Error al inscribirse en el curso.');
+                    // this.showFeedbackDialog('Error al inscribirse en el curso.');
+                    this.toast.error('Error al inscribirse en el curso');
                 });
         },
         finalizeCourse() {
@@ -333,11 +346,13 @@ export default {
             axios.post(`/api/courses/${courseId}/finalize`)
                 .then(response => {
                     this.enrollmentStatus = 'Finalizado';
-                    this.showFeedbackDialog('¡Felicidades! Has finalizado el curso con éxito.');
+                    // this.showFeedbackDialog('¡Felicidades! Has finalizado el curso con éxito.');
+                    this.toast.success('¡Felicidades! Has finalizado el curso con éxito.');
                 })
                 .catch(error => {
                     console.error('Error finalizing course:', error);
-                    this.showFeedbackDialog('No has completado todas las lecciones o tu puntaje no cumple con el requisito mínimo de 7.');
+                    // this.showFeedbackDialog('No has completado todas las lecciones o tu puntaje no cumple con el requisito mínimo de 7.');
+                    this.toast.info('No has completado todas las lecciones o tu puntaje no cumple con el requisito mínimo de 7.');
                 });
         },
         submitLesson(lessonId) {
@@ -359,7 +374,7 @@ export default {
 
             axios.post(`/api/lessons/${lessonId}/submit`, payload)
                 .then(response => {
-                    this.showFeedbackDialog('Respuestas enviadas correctamente.');
+                    this.toast.info('Respuestas enviadas correctamente.');
                     this.course.sections.forEach(section => {
                         section.lessons.forEach(lesson => {
                             if (lesson.id === lessonId) {
@@ -370,7 +385,7 @@ export default {
                 })
                 .catch(error => {
                     console.error('Error submitting lesson:', error);
-                    this.showFeedbackDialog('Error al enviar las respuestas.');
+                    this.toast.error('Error al enviar las respuestas.');
                 });
         },
         checkRole() {
