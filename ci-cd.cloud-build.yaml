@@ -4,7 +4,7 @@ steps:
     entrypoint: 'sh'
     args:
       - '-c'
-      - 'cp env.example .env'
+      - 'cp .env.example .env'
 
   - id: Build
     name: gcr.io/cloud-builders/docker
