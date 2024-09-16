@@ -1,69 +1,44 @@
 steps:
-  # 1. Copiar el archivo .env.example a .env
-  - id: 'Copy env.example to .env'
-    name: 'alpine'
-    entrypoint: 'sh'
-    args:
-      - '-c'
-      - 'cp .env.example .env'
-
-  # 2. Construir la imagen de la aplicación (Dockerfile.app)
-  - id: 'Build App Image'
-    name: 'docker/compose:1.29.2'
-    args:
-      - 'build'
-      - 'app'
-
-  # 3. Construir la imagen de Vite (Dockerfile.vite)
-  - id: 'Build Vite Image'
-    name: 'docker/compose:1.29.2'
-    args:
-      - 'build'
-      - 'vite'
-
-  # 4. Etiquetar la imagen de la aplicación para su push
-  - id: 'Tag App Image'
+  - id: 'Build app image'
     name: 'docker'
-    entrypoint: 'sh'
+    entrypoint: 'bash'
     args:
       - '-c'
-      - 'docker tag swgcc-app ${_IMAGE_NAME_APP}'
+      - |
+        docker build -t us-central1-docker.pkg.dev/${PROJECT_ID}/swgcc-app:${SHORT_SHA} -f Dockerfile.app .
 
-  # 5. Etiquetar la imagen de Vite para su push
-  - id: 'Tag Vite Image'
+  - id: 'Build vite image'
     name: 'docker'
-    entrypoint: 'sh'
+    entrypoint: 'bash'
     args:
       - '-c'
-      - 'docker tag swgcc-vite ${_IMAGE_NAME_VITE}'
+      - |
+        docker build -t us-central1-docker.pkg.dev/${PROJECT_ID}/swgcc-vite:${SHORT_SHA} -f Dockerfile.vite .
 
-  # 6. Subir la imagen de la aplicación a Artifact Registry
-  - id: 'Push App Image'
+  - id: 'Push app image'
     name: 'docker'
-    entrypoint: 'sh'
+    entrypoint: 'bash'
     args:
       - '-c'
-      - 'docker push ${_IMAGE_NAME_APP}'
+      - |
+        docker push us-central1-docker.pkg.dev/${PROJECT_ID}/swgcc-app:${SHORT_SHA}
 
-  # 7. Subir la imagen de Vite a Artifact Registry
-  - id: 'Push Vite Image'
+  - id: 'Push vite image'
     name: 'docker'
-    entrypoint: 'sh'
+    entrypoint: 'bash'
     args:
       - '-c'
-      - 'docker push ${_IMAGE_NAME_VITE}'
+      - |
+        docker push us-central1-docker.pkg.dev/${PROJECT_ID}/swgcc-vite:${SHORT_SHA}
 
-# Definir las imágenes que se crearán en Cloud Build
 images:
-  - '${_IMAGE_NAME_APP}'
-  - '${_IMAGE_NAME_VITE}'
+  - 'us-central1-docker.pkg.dev/${PROJECT_ID}/swgcc-app:${SHORT_SHA}'
+  - 'us-central1-docker.pkg.dev/${PROJECT_ID}/swgcc-vite:${SHORT_SHA}'
 
-# Opciones adicionales
 options:
   logging: CLOUD_LOGGING_ONLY
   dynamic_substitutions: true
 
-# Variables de sustitución
 substitutions:
-  _IMAGE_NAME_APP: '${_ARTIFACT_REGISTRY_LOCATION}/${PROJECT_ID}/${_ARTIFACT_REGISTRY_REPOSITORY}/swgcc-app:${SHORT_SHA}'
-  _IMAGE_NAME_VITE: '${_ARTIFACT_REGISTRY_LOCATION}/${PROJECT_ID}/${_ARTIFACT_REGISTRY_REPOSITORY}/swgcc-vite:${SHORT_SHA}'
+  _IMAGE_NAME_APP: 'us-central1-docker.pkg.dev/${PROJECT_ID}/swgcc-app:${SHORT_SHA}'
+  _IMAGE_NAME_VITE: 'us-central1-docker.pkg.dev/${PROJECT_ID}/swgcc-vite:${SHORT_SHA}'
