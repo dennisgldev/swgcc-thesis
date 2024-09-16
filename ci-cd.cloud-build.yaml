@@ -1,5 +1,5 @@
 steps:
-  # Copiar env.example a .env
+  # 1. Copiar el archivo .env.example a .env
   - id: 'Copy env.example to .env'
     name: 'alpine'
     entrypoint: 'sh'
@@ -7,39 +7,63 @@ steps:
       - '-c'
       - 'cp .env.example .env'
 
-  # Construir la imagen usando Docker Compose
-  - id: 'Build with Docker Compose'
+  # 2. Construir la imagen de la aplicación (Dockerfile.app)
+  - id: 'Build App Image'
     name: 'docker/compose:1.29.2'
-    entrypoint: 'sh'
     args:
-      - '-c'
-      - 'docker-compose -f docker-compose.yml build'
+      - 'build'
+      - 'app'
 
-  # Etiquetar la imagen antes de hacer el push
-  - id: 'Tag Image'
+  # 3. Construir la imagen de Vite (Dockerfile.vite)
+  - id: 'Build Vite Image'
+    name: 'docker/compose:1.29.2'
+    args:
+      - 'build'
+      - 'vite'
+
+  # 4. Etiquetar la imagen de la aplicación para su push
+  - id: 'Tag App Image'
     name: 'docker'
     entrypoint: 'sh'
     args:
       - '-c'
-      - 'docker tag app:latest ${_IMAGE_NAME}'
+      - 'docker tag swgcc-app ${_IMAGE_NAME_APP}'
 
-  # Empujar la imagen al registro de artefactos
-  - id: 'Push Image'
+  # 5. Etiquetar la imagen de Vite para su push
+  - id: 'Tag Vite Image'
     name: 'docker'
     entrypoint: 'sh'
     args:
       - '-c'
-      - 'docker push ${_IMAGE_NAME}'
+      - 'docker tag swgcc-vite ${_IMAGE_NAME_VITE}'
 
+  # 6. Subir la imagen de la aplicación a Artifact Registry
+  - id: 'Push App Image'
+    name: 'docker'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - 'docker push ${_IMAGE_NAME_APP}'
+
+  # 7. Subir la imagen de Vite a Artifact Registry
+  - id: 'Push Vite Image'
+    name: 'docker'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - 'docker push ${_IMAGE_NAME_VITE}'
+
+# Definir las imágenes que se crearán en Cloud Build
 images:
-  - '${_IMAGE_NAME}'
+  - '${_IMAGE_NAME_APP}'
+  - '${_IMAGE_NAME_VITE}'
 
+# Opciones adicionales
 options:
   logging: CLOUD_LOGGING_ONLY
   dynamic_substitutions: true
 
+# Variables de sustitución
 substitutions:
-  _IMAGE_NAME: '${_ARTIFACT_REGISTRY_LOCATION}/${PROJECT_ID}/${_ARTIFACT_REGISTRY_REPOSITORY}/${_DOCKER_IMAGE_NAME}:${SHORT_SHA}'
-
-tags:
-  - swgcc-thesis
+  _IMAGE_NAME_APP: '${_ARTIFACT_REGISTRY_LOCATION}/${PROJECT_ID}/${_ARTIFACT_REGISTRY_REPOSITORY}/swgcc-app:${SHORT_SHA}'
+  _IMAGE_NAME_VITE: '${_ARTIFACT_REGISTRY_LOCATION}/${PROJECT_ID}/${_ARTIFACT_REGISTRY_REPOSITORY}/swgcc-vite:${SHORT_SHA}'

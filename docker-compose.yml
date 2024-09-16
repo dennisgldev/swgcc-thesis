@@ -5,7 +5,6 @@ services:
         build:
             context: .
             dockerfile: Dockerfile.app
-        image: app:latest
         container_name: swgcc-app
         restart: unless-stopped
         environment:
