@@ -1,5 +1,5 @@
 steps:
-  # Comentario commit
+  # Copiar env.example a .env
   - id: 'Copy env.example to .env'
     name: 'alpine'
     entrypoint: 'sh'
@@ -7,6 +7,7 @@ steps:
       - '-c'
       - 'cp .env.example .env'
 
+  # Construir la imagen usando Docker Compose
   - id: 'Build with Docker Compose'
     name: 'docker/compose:1.29.2'
     entrypoint: 'sh'
@@ -14,15 +15,17 @@ steps:
       - '-c'
       - 'docker-compose -f docker-compose.yml build'
 
+  # Etiquetar la imagen antes de hacer el push
   - id: 'Tag Image'
-    name: 'docker/compose:1.29.2'
+    name: 'docker'
     entrypoint: 'sh'
     args:
       - '-c'
       - 'docker tag app:latest ${_IMAGE_NAME}'
 
+  # Empujar la imagen al registro de artefactos
   - id: 'Push Image'
-    name: 'docker/compose:1.29.2'
+    name: 'docker'
     entrypoint: 'sh'
     args:
       - '-c'
