@@ -1,5 +1,5 @@
 steps:
-  #Comentario commit
+  # Comentario commit
   - id: 'Copy env.example to .env'
     name: 'alpine'
     entrypoint: 'sh'
@@ -14,14 +14,19 @@ steps:
       - '-c'
       - 'docker-compose -f docker-compose.yml build'
 
-  - id: 'Push'
+  - id: 'Tag Image'
     name: 'docker/compose:1.29.2'
     entrypoint: 'sh'
     args:
       - '-c'
-      - |
-        docker tag app:latest ${_IMAGE_NAME}
-        docker push ${_IMAGE_NAME}
+      - 'docker tag app:latest ${_IMAGE_NAME}'
+
+  - id: 'Push Image'
+    name: 'docker/compose:1.29.2'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - 'docker push ${_IMAGE_NAME}'
 
 images:
   - '${_IMAGE_NAME}'
