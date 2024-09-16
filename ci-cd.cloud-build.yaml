@@ -6,20 +6,19 @@ steps:
       - '-c'
       - 'cp .env.example .env'
 
-  - id: Build
-    name: gcr.io/cloud-builders/docker
-    args: [
-      'build',
-      '-t',
-      '${_IMAGE_NAME}',
-      '.'
-    ]
-
-  - id: Push
-    name: gcr.io/cloud-builders/docker
+  - id: 'Build with Docker Compose'
+    name: 'docker/compose:1.29.2'
+    entrypoint: 'sh'
     args:
-      - push
-      - '${_IMAGE_NAME}'
+      - '-c'
+      - 'docker-compose -f docker-compose.yml build'
+
+  - id: 'Push Images'
+    name: 'docker/compose:1.29.2'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - 'docker-compose -f docker-compose.yml push'
 
 images:
   - '${_IMAGE_NAME}'
